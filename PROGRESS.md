@@ -2,7 +2,16 @@
 
 > This is a living status doc, not a design doc — for the "what and why" of the project, see `PROJECT_BRIEF.md`. This file exists so a fresh Claude Code session (or you) can get oriented in one read, without depending on memory carrying over across sessions. Update it after each meaningful milestone.
 
-## Status: Stage 0 and Stage 1 complete and verified
+## Status: Stage 0 and 1 complete; Stage 2 (Firebase) auth core done and verified
+
+### Stage 2 so far — Accounts & Cloud Sync
+- **Firebase project:** `lockin-app-sg` (display name "Lock-In"), owned by quakjunehao@gmail.com, Firestore in `asia-southeast1`. Config lives in `app/google-services.json` — **gitignored**, re-download via Firebase console → Project settings → Your apps if missing.
+- **Auth:** email/password (required sign-in model — app opens to `AuthScreen` until signed in). Sign-up collects a display name and writes a `users/{uid}` profile doc to Firestore (`UserProfileStore.kt`). Verified on-emulator end-to-end: sign-up → profile doc visible in Firestore, sign-out → auth screen, sign-in → Home.
+- **Security rules:** owner-only rules deployed from `firestore.rules` (never used test mode — DB was created with closed rules and immediately got real ones). Deploy changes with `firebase deploy --only firestore:rules`.
+- **Tooling note:** Firebase CLI runs via a portable Node install at `%LOCALAPPDATA%\node-portable\node-v20.18.2-win-x64\firebase.cmd` (logged in as the owner account). No global Node/npm on this machine.
+- **Still to do in Stage 2:** sync the allowlist to Firestore; record + sync session history (sessions currently aren't recorded anywhere, even locally).
+
+## Earlier stages: Stage 0 and Stage 1 complete and verified
 
 Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, or logcat depending on what a screenshot couldn't show), not just compiled.
 
@@ -25,7 +34,7 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 - Opening Lock-In itself always counts as compliant (intentional, so checking your session doesn't punish you) — but this means the alarm can be silenced just by switching back to the app without actually returning to focus
 
 ## What's next
-Per the staged plan in `PROJECT_BRIEF.md`, **Stage 2 (Firebase Auth + Firestore accounts/sync)** is next in sequence. Still open from the brief itself and not yet addressed:
+Finish Stage 2: **allowlist sync to Firestore**, then **session history recording + sync**. Still open from the brief itself and not yet addressed:
 - The onboarding/permission-priming screen (explicitly called out as a real design deliverable)
 - The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration?
 
@@ -40,5 +49,9 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 - `LockInService.kt` — foreground service: notification, screen-state receiver, compliance polling loop, alarm
 - `ScreenStateReceiver.kt` — wraps `SCREEN_ON`/`SCREEN_OFF` broadcast registration
 - `ComplianceMonitor.kt` — compliance model + `LockInMonitor` shared state (Service writes, UI observes)
+- `AuthScreen.kt` — email/password sign-in/sign-up UI (no success callback; MainActivity observes auth state)
+- `UserProfileStore.kt` — writes the Firestore `users/{uid}` profile doc on sign-up
+
+Firebase config files at the project root: `firestore.rules` (owner-only rules), `firebase.json`, `.firebaserc` (default project `lockin-app-sg`).
 
 **Renamed (2026-07-14):** package is now `com.example.lockin`, app displays as "Lock-In" everywhere (launcher, notification, top bar). Previously `com.example.firstproject` / "First Project," the leftover Android Studio scaffold name. Verified with a clean build + fresh install after uninstalling the old package (different `applicationId` = a distinct app identity to Android).

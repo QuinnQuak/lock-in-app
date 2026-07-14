@@ -68,19 +68,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Permission, Home, Allowlist }
+private enum class Screen { Auth, Permission, Home, Allowlist }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
+    private var signedIn by mutableStateOf(false)
+
+    // Fires immediately on registration with the current state, then again on
+    // every sign-in/sign-out — so `signedIn` needs no separate initialization.
+    private val authStateListener = FirebaseAuth.AuthStateListener { auth ->
+        signedIn = auth.currentUser != null
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Firebase.auth.addAuthStateListener(authStateListener)
         setContent {
             LockInTheme {
                 var showAllowlist by remember { mutableStateOf(false) }
                 val currentScreen = when {
+                    !signedIn -> Screen.Auth
                     !usageAccessGranted -> Screen.Permission
                     showAllowlist -> Screen.Allowlist
                     else -> Screen.Home
@@ -117,10 +129,21 @@ class MainActivity : ComponentActivity() {
                         ) { screen ->
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 when (screen) {
+                                    Screen.Auth -> AuthScreen()
                                     Screen.Permission -> PermissionPrompt(
                                         onRequestAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
                                     )
-                                    Screen.Home -> HomeScreen(onOpenAllowlist = { showAllowlist = true })
+                                    Screen.Home -> HomeScreen(
+                                        onOpenAllowlist = { showAllowlist = true },
+                                        onSignOut = {
+                                            // An active session can't outlive its owner: stop
+                                            // monitoring before the account goes away.
+                                            if (loadSession(this@MainActivity).isActive) {
+                                                stopLockInSession(this@MainActivity)
+                                            }
+                                            Firebase.auth.signOut()
+                                        }
+                                    )
                                     Screen.Allowlist -> AllowlistScreen()
                                 }
                             }
@@ -134,6 +157,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         usageAccessGranted = hasUsageAccessPermission(this)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Firebase.auth.removeAuthStateListener(authStateListener)
     }
 }
 
@@ -192,7 +220,7 @@ private fun PermissionPrompt(onRequestAccess: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenAllowlist: () -> Unit) {
+private fun HomeScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -243,6 +271,9 @@ private fun HomeScreen(onOpenAllowlist: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
         TextButton(onClick = onOpenAllowlist) {
             Text("Manage Allowlist")
+        }
+        TextButton(onClick = onSignOut) {
+            Text("Sign Out", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -315,7 +346,7 @@ private fun SessionControls() {
 }
 
 @Composable
-private fun PressableButton(
+internal fun PressableButton(
     onClick: () -> Unit,
     containerColor: Color,
     icon: ImageVector,
