@@ -20,7 +20,7 @@ Friend requests (search by email, send/accept/decline), symmetric friendships, f
 
 **Real bug found and fixed:** a `LazyColumn` key collision crash from leftover request state after an interrupted accept — see `ARCHITECTURE.md`'s Key Decisions & Gotchas for the general pattern.
 
-### Stage 4 — Group Lock-Ins ✅ (commits `7a707c1`→`5ff1201`, plus the mute-approval work — uncommitted as of this writing)
+### Stage 4 — Group Lock-Ins ✅ (commits `7a707c1`→`05e85e6`)
 - ✅ Group data model + create/join (owner-managed membership picked from friends at creation — no accept-step join flow, a documented scope simplification).
 - ✅ Real-time group session state sync — live compliance pushed to Firestore per member, shown as a colored-dot list on Home during an active group session.
 - ✅ Break alerts — mocked (no Blaze billing for real FCM/Cloud Functions): a local notification fires via the same live listener when a groupmate breaks. Verified: cold app launch with an existing BREAK doc correctly raised a notification.
