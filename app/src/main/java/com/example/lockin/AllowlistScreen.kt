@@ -1,4 +1,4 @@
-package com.example.firstproject
+package com.example.lockin
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column

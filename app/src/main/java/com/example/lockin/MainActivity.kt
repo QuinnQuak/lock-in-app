@@ -1,4 +1,4 @@
-package com.example.firstproject
+package com.example.lockin
 
 import android.Manifest
 import android.content.Intent

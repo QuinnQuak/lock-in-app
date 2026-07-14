@@ -1,4 +1,4 @@
-package com.example.firstproject
+package com.example.lockin
 
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents

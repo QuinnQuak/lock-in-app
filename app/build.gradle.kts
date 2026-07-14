@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.firstproject"
+    namespace = "com.example.lockin"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.firstproject"
+        applicationId = "com.example.lockin"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

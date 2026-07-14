@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "First Project"
+rootProject.name = "Lock-In"
 include(":app")
  

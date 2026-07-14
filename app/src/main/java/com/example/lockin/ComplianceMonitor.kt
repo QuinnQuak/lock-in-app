@@ -1,4 +1,4 @@
-package com.example.firstproject
+package com.example.lockin
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
