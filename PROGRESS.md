@@ -42,8 +42,13 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 - Force-stopping the app isn't prevented, and leaves a **phantom "active" session** in the UI (growing timer, no actual service running) until the user manually stops it
 - Opening Lock-In itself always counts as compliant (intentional, so checking your session doesn't punish you) — but this means the alarm can be silenced just by switching back to the app without actually returning to focus
 
+## Stage 4 in progress — Group Lock-Ins
+- Data model + create/join done (commit `7a707c1`): `groups/{id}` (owner-managed membership, picked from friends at creation; `muteApprovalCount`). Verified cross-account via Firestore query.
+- Decided: max alarm duration (2 min) caps an unresponsive group's alarm regardless of response.
+- Not yet built: real-time group session state sync, FCM push on break, mute-approval flow, alarm cap enforcement.
+
 ## What's next
-**Stage 4 — Group Lock-Ins** (create/join group sessions, real-time Firestore session state, FCM push on break). Still open from the brief itself and not yet addressed:
+Finish Stage 4. Still open from the brief itself and not yet addressed:
 - The onboarding/permission-priming screen (explicitly called out as a real design deliverable)
 - The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration? (needs a decision before Stage 4 implementation)
 
