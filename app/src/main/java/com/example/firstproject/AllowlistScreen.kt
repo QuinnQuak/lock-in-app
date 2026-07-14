@@ -41,7 +41,6 @@ fun AllowlistScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
         )
-        Spacer(modifier = Modifier.width(8.dp))
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(apps, key = { it.packageName }) { app ->
                 AllowlistRow(

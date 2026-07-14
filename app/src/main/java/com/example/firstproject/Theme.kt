@@ -105,20 +105,17 @@ private val LockInTypography = Typography().let { base ->
             lineHeight = 20.sp,
             letterSpacing = 0.8.sp
         ),
-    ).run {
-        // Apply the font family to every remaining slot too, so nothing silently
-        // falls back to the system default.
-        copy(
-            displayLarge = displayLarge.withQuicksand(),
-            displayMedium = displayMedium.withQuicksand(),
-            headlineLarge = headlineLarge.withQuicksand(),
-            headlineMedium = headlineMedium.withQuicksand(),
-            titleMedium = titleMedium.withQuicksand(),
-            titleSmall = titleSmall.withQuicksand(),
-            bodySmall = bodySmall.withQuicksand(),
-            labelSmall = labelSmall.withQuicksand(),
-        )
-    }
+        // Remaining slots aren't styled with custom sizes, but still get the
+        // font family so nothing silently falls back to the system default.
+        displayLarge = base.displayLarge.withQuicksand(),
+        displayMedium = base.displayMedium.withQuicksand(),
+        headlineLarge = base.headlineLarge.withQuicksand(),
+        headlineMedium = base.headlineMedium.withQuicksand(),
+        titleMedium = base.titleMedium.withQuicksand(),
+        titleSmall = base.titleSmall.withQuicksand(),
+        bodySmall = base.bodySmall.withQuicksand(),
+        labelSmall = base.labelSmall.withQuicksand(),
+    )
 }
 
 private fun TextStyle.withQuicksand(): TextStyle = copy(fontFamily = QuicksandFamily)
