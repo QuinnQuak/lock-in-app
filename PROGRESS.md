@@ -46,7 +46,9 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 - Data model + create/join done (commit `7a707c1`): `groups/{id}` (owner-managed membership, picked from friends at creation; `muteApprovalCount`). Verified cross-account via Firestore query.
 - Decided: max alarm duration (2 min) caps an unresponsive group's alarm regardless of response.
 - Real-time session sync done (commit pending): session picks a group via a cycling selector on Home; `LockInService` pushes live compliance state to `groups/{id}/liveStatus/{uid}` each tick, cleared on stop. Home shows a live "GROUP STATUS" list (colored dot per member) while a group session is active. Verified: compliant→break→compliant round trip confirmed via REST against the deployed rules, and cleanup-on-stop confirmed (doc gone after Stop).
-- Not yet built: FCM push on break, mute-approval flow, alarm cap enforcement.
+- Break alerts (commit pending): real FCM needs a Cloud Function + Blaze billing, which this project isn't using, so this is a documented mock instead -- each device's own live Firestore listener (from the sync above) raises a local notification when a groupmate transitions into BREAK. Verified: cold app launch with an existing BREAK in Firestore correctly shows "X broke their lock-in · in GroupName". Real limitation vs actual FCM: only fires while this device's app process is alive, can't wake a fully force-closed app.
+- Alarm cap: alarm auto-silences after 2 minutes regardless of group response (BREAK state itself is unaffected, just the sound) -- implemented, logic-reviewed, not runtime-verified (would need a real 2-minute wait).
+- Not yet built: mute-approval flow (a breaker's alarm silence requiring N group approvals) -- the room `muteApprovalCount` setting exists on the group doc but nothing reads it yet.
 
 ## What's next
 Finish Stage 4. Still open from the brief itself and not yet addressed:

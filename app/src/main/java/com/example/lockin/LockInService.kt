@@ -28,6 +28,11 @@ import kotlinx.coroutines.launch
 private const val CHANNEL_ID = "lockin_session"
 private const val NOTIFICATION_ID = 1
 
+// An unresponsive group shouldn't mean a real multi-minute alarm at odd
+// hours -- the alarm auto-silences after this many ms regardless of group
+// response. The BREAK state itself is unaffected; only the sound stops.
+private const val MAX_ALARM_DURATION_MILLIS = 2 * 60 * 1000L
+
 class LockInService : Service() {
 
     private var isScreenOn = true
@@ -43,6 +48,8 @@ class LockInService : Service() {
     private var groupId: String? = null
     private var breakCount = 0
     private var wasInBreak = false
+    private var alarmStartMillis = 0L
+    private var alarmCapped = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -96,11 +103,23 @@ class LockInService : Service() {
                 }
 
                 if (status.state == ComplianceState.BREAK) {
-                    if (!wasInBreak) breakCount++
+                    if (!wasInBreak) {
+                        breakCount++
+                        alarmCapped = false
+                    }
                     wasInBreak = true
-                    startAlarm()
+                    val elapsedSinceAlarmStart = if (alarmStartMillis > 0) {
+                        System.currentTimeMillis() - alarmStartMillis
+                    } else 0
+                    if (!alarmCapped && elapsedSinceAlarmStart >= MAX_ALARM_DURATION_MILLIS) {
+                        alarmCapped = true
+                        stopAlarm()
+                    } else if (!alarmCapped) {
+                        startAlarm()
+                    }
                 } else {
                     wasInBreak = false
+                    alarmCapped = false
                     stopAlarm()
                 }
 
@@ -111,6 +130,7 @@ class LockInService : Service() {
 
     private fun startAlarm() {
         if (mediaPlayer != null) return
+        alarmStartMillis = System.currentTimeMillis()
         val alarmUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         mediaPlayer = MediaPlayer().apply {

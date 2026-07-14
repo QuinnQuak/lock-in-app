@@ -101,6 +101,25 @@ class MainActivity : ComponentActivity() {
                     onDispose { registration?.remove() }
                 }
 
+                // Mock push: watches groupmates' live status for breaks and
+                // raises a local notification. Only fires while this process
+                // is alive -- see MockBreakNotifier.kt for why.
+                var myGroups by remember { mutableStateOf<List<LockInGroup>>(emptyList()) }
+                DisposableEffect(signedIn) {
+                    val reg = if (signedIn) {
+                        Firebase.auth.currentUser?.uid?.let { listenMyGroups(it) { g -> myGroups = g } }
+                    } else null
+                    onDispose { reg?.remove() }
+                }
+                DisposableEffect(myGroups) {
+                    val uid = Firebase.auth.currentUser?.uid
+                    val regs = if (uid != null && myGroups.isNotEmpty()) {
+                        ensureBreakAlertChannel(this@MainActivity)
+                        watchGroupsForBreaks(this@MainActivity, uid, myGroups)
+                    } else emptyList()
+                    onDispose { regs.forEach { it.remove() } }
+                }
+
                 var subScreen by remember { mutableStateOf<Screen?>(null) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
