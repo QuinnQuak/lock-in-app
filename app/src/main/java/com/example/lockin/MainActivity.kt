@@ -74,7 +74,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Auth, Permission, Home, Allowlist, Friends }
+private enum class Screen { Auth, Permission, Home, Allowlist, Friends, Groups }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
@@ -146,6 +146,7 @@ class MainActivity : ComponentActivity() {
                                     Screen.Home -> HomeScreen(
                                         onOpenAllowlist = { subScreen = Screen.Allowlist },
                                         onOpenFriends = { subScreen = Screen.Friends },
+                                        onOpenGroups = { subScreen = Screen.Groups },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop
                                             // monitoring before the account goes away.
@@ -157,6 +158,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                     Screen.Allowlist -> AllowlistScreen()
                                     Screen.Friends -> FriendsScreen()
+                                    Screen.Groups -> GroupsScreen()
                                 }
                             }
                         }
@@ -180,13 +182,14 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
-    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends
+    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends || screen == Screen.Groups
     TopAppBar(
         title = {
             Text(
                 text = when (screen) {
                     Screen.Allowlist -> "Allowlist"
                     Screen.Friends -> "Friends"
+                    Screen.Groups -> "Groups"
                     else -> "Lock-In"
                 },
                 fontWeight = FontWeight.SemiBold
@@ -237,7 +240,7 @@ private fun PermissionPrompt(onRequestAccess: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onSignOut: () -> Unit) {
+private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onOpenGroups: () -> Unit, onSignOut: () -> Unit) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -291,6 +294,9 @@ private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, o
         }
         TextButton(onClick = onOpenFriends) {
             Text("Friends")
+        }
+        TextButton(onClick = onOpenGroups) {
+            Text("Groups")
         }
         TextButton(onClick = onSignOut) {
             Text("Sign Out", color = MaterialTheme.colorScheme.onSurfaceVariant)

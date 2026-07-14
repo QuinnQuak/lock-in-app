@@ -28,7 +28,7 @@ A lock-in is an auto-detected, tamper-resistant focus session, either solo or in
 **Alarm muting rule (solo vs. group):**
 - **Solo lock-in:** the user manages their own alarm/rules — no group gatekeeping needed.
 - **Group lock-in:** muting the breaker's alarm requires approval from other room members — a form of "herd behavior" enforcement. The **approval threshold is a customizable room setting** (e.g., "4 of 8 members must approve" or unanimous, or a single approver), set by whoever creates/configures the room. This makes strictness a group choice rather than a hardcoded rule, and naturally self-limits: if the group doesn't bother approving a mute request, that's the group's peer pressure choosing to lapse, not a system bug.
-- **Open design question for Stage 1/4:** should there be a grace period or max alarm duration regardless of group response (to avoid a genuine multi-minute alarm at odd hours if the room is unresponsive), or is unresponsiveness treated as an acceptable outcome? Needs a decision before Stage 4 implementation.
+- **Decided (2026-07-15):** max alarm duration, auto-stops after a fixed cap (2 min) regardless of group response.
 
 ## Known Loopholes / Deliberately Deferred Problems
 These were surfaced during design review and consciously deferred rather than accidentally missed — worth remembering as "known limitations of a proof of concept," not oversights:
