@@ -1,79 +1,41 @@
 # Progress Handover
 
-> This is a living status doc, not a design doc — for the "what and why" of the project, see `PROJECT_BRIEF.md`. This file exists so a fresh Claude Code session (or you) can get oriented in one read, without depending on memory carrying over across sessions. Update it after each meaningful milestone.
+> Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. Update this file after each meaningful milestone.
 
-## Status: Stages 0, 1, 2, and 3 complete and verified
+## Status: Stages 0–3 complete and verified; Stage 4 mostly done
 
-### Stage 3 — Friends & Visible Allowlists (complete)
-- **Data model, no Cloud Functions:** `friendRequests/{fromUid}_{toUid}` — the doc's mere *existence* is its pending state (no status field), so accept/decline is just create/delete, sidestepping a real Firestore gotcha: a batch's security rules evaluate against the *pre-batch* state, so a status flip earlier in the same batch isn't visible to a later write in it. `users/{uid}/friends/{friendUid}` is the symmetric friendship — created via a two-step accept (`FriendRequestStore.kt`): batch-create both directions' friend docs (gated by the still-existing pending request), then delete the request as cleanup. `userSearch/{uid}` is a public email→uid directory (readable by any signed-in user) so requests can be sent without exposing the private `users/{uid}` doc.
-- **Security rules:** `users/{uid}` reads now allow the owner OR a friend (`isFriendOf()`, an `exists()` check on the friends subcollection) — this is what makes the allowlist friend-visible, Stage 3's whole point. Session history stays owner-only. Verified via raw REST calls (not just the app): a non-friend stranger gets 403 on both reading a profile and forging a friendship doc; a friend read and the public search directory both succeed.
-- **UI (`FriendsScreen.kt`):** add-by-email, incoming requests with accept/decline, friends list with an expandable read-only allowlist view (reuses `appLabelFor()` from Stage 1).
-- **Real bug found and fixed:** a transient network blip during testing killed the app mid-accept, after the friend docs were created but before the request-cleanup delete ran — leaving a friendRequest whose `fromUid` was now also a friend. Both `items()` blocks in the Friends `LazyColumn` keyed by raw uid, and Compose requires **unique keys across an entire LazyColumn, not per items() block** — so this leftover state crashed the app with `IllegalArgumentException: Key "..." was already used` the instant the screen rendered. Fixed by prefixing keys (`"request-$uid"` / `"friend-$uid"`) and, since a similar leftover could recur from any interrupted accept, added a self-heal: any incoming request whose sender is already a friend is filtered from the list and quietly deleted. Worth remembering as a general LazyColumn pattern, not just a one-off fix.
-- Verified fully end-to-end with two real accounts (`testuser@lockin.test` and `testuser2@lockin.test`) signed in alternately on the one emulator: search → send → accept → symmetric friendship on both sides → allowlist visible both directions → non-friend correctly denied.
+Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
-### Stage 2 — Accounts & Cloud Sync (complete)
-- **Firebase project:** `lockin-app-sg` (display name "Lock-In"), owned by quakjunehao@gmail.com, Firestore in `asia-southeast1`. Config lives in `app/google-services.json` — **gitignored**, re-download via Firebase console → Project settings → Your apps if missing.
-- **Auth:** email/password (required sign-in model — app opens to `AuthScreen` until signed in). Sign-up collects a display name and writes a `users/{uid}` profile doc to Firestore (`UserProfileStore.kt`). Verified on-emulator end-to-end: sign-up → profile doc visible in Firestore, sign-out → auth screen, sign-in → Home.
-- **Security rules:** owner-only rules deployed from `firestore.rules` (never used test mode — DB was created with closed rules and immediately got real ones). Deploy changes with `firebase deploy --only firestore:rules`.
-- **Allowlist sync (`AllowlistSync.kt`):** Firestore (`users/{uid}.allowlist`) is the source of truth; SharedPreferences stays the synchronous local cache the service polls. Toggles write both; a snapshot listener (owned by MainActivity via `DisposableEffect(signedIn)`) pulls remote changes into the cache. Verified both directions on-device (remote REST edit reached SharedPreferences in seconds). Last-write-wins conflicts, fine for one device.
-- **Session history (`SessionHistoryStore.kt`):** on service teardown, one doc per session under `users/{uid}/sessions` — startedAt/endedAt, durationSeconds, breakCount (transition-edge counted in `LockInService`). uid + start time are captured at service *start* because stop-flow clears both stores before `onDestroy` runs. Verified: a 43s session with one deliberate break recorded `breakCount: 1`. Force-stopped sessions are never recorded (known loophole, Stage 6).
-- **Tooling note:** Firebase CLI runs via a portable Node install at `%LOCALAPPDATA%\node-portable\node-v20.18.2-win-x64\firebase.cmd` (logged in as the owner account). No global Node/npm on this machine.
-- **Dev/test account:** `testuser@lockin.test` (throwaway, emulator-only; trivial dev password). Backend can be inspected at https://console.firebase.google.com/project/lockin-app-sg — Authentication for accounts, Firestore Database for docs.
-
-## Earlier stages: Stage 0 and Stage 1 complete and verified
-
-Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, or logcat depending on what a screenshot couldn't show), not just compiled.
-
-### Stage 0 — Environment
+### Stage 0 — Environment ✅
 Kotlin + Jetpack Compose scaffold, git initialized, hello-world verified running.
 
-### Stage 1 — Solo Lock-In Core (all 4 deliverables done)
-1. **Foreground-app + screen-on/off detection** — `UsageStatsManager` polling (`UsageAccess.kt`) + a runtime-registered `BroadcastReceiver` for the protected `SCREEN_ON`/`SCREEN_OFF` broadcasts (`ScreenStateReceiver.kt`). Note: `currentForegroundApp()` uses a 1-hour lookback window, which is a stopgap — the technically correct fix is to query from the session's start time instead of any fixed window (not yet done).
-2. **Personal allowlist** (`AllowlistScreen.kt`, `AllowlistStore.kt`, `InstalledApps.kt`) — real installed apps with icons, toggleable, persisted via `SharedPreferences`.
-3. **Session start/stop** (`LockInService.kt`, `LockInSessionStore.kt`) — a real foreground `Service`, not just an Activity toggle, so monitoring survives backgrounding.
-4. **Break detection + alarm** (`ComplianceMonitor.kt`) — compliance evaluated every 1s (screen off, own app, or allowlisted app = compliant; else break); on break, a looping `MediaPlayer` alarm + vibration starts, confirmed via `dumpsys audio` (not just internal state).
+### Stage 1 — Solo Lock-In Core ✅
+All 4 deliverables done: foreground-app + screen-on/off detection, personal allowlist, session start/stop (real foreground `Service`), break detection + alarm. Visual design (soft lavender/sage/coral, Quicksand) applied app-wide.
 
-### Visual design
-Custom `LockInTheme` (`Theme.kt`): soft lavender/sage/coral pastel palette (light + dark), Quicksand variable font app-wide, `Scaffold` + top bar with spring-based screen transitions, springy button press feedback. Chosen direction: "soft & tactile," explicitly not a mascot/character (checked against the brief's "avoid childish" guidance).
+### Stage 2 — Accounts & Cloud Sync ✅
+Firebase Auth (email/password, required sign-in) + Firestore. Profile doc on sign-up, allowlist two-way sync, session history recording. Verified end-to-end on-device and via REST against deployed rules.
 
-## Known, deliberately accepted limitations
-Same spirit as the brief's own documented loopholes — real gaps, not oversights:
-- Airplane mode defeats detection (brief's original)
-- Force-stopping the app isn't prevented, and leaves a **phantom "active" session** in the UI (growing timer, no actual service running) until the user manually stops it
-- Opening Lock-In itself always counts as compliant (intentional, so checking your session doesn't punish you) — but this means the alarm can be silenced just by switching back to the app without actually returning to focus
+### Stage 3 — Friends & Visible Allowlists ✅
+Friend requests (search by email, send/accept/decline), symmetric friendships, friend-visible allowlists. Verified with two real accounts alternating sign-in on one emulator: search → send → accept → symmetric friendship both sides → allowlist visible both directions → non-friend correctly denied (403 via direct REST test).
 
-## Stage 4 in progress — Group Lock-Ins
-- Data model + create/join done (commit `7a707c1`): `groups/{id}` (owner-managed membership, picked from friends at creation; `muteApprovalCount`). Verified cross-account via Firestore query.
-- Decided: max alarm duration (2 min) caps an unresponsive group's alarm regardless of response.
-- Real-time session sync done (commit pending): session picks a group via a cycling selector on Home; `LockInService` pushes live compliance state to `groups/{id}/liveStatus/{uid}` each tick, cleared on stop. Home shows a live "GROUP STATUS" list (colored dot per member) while a group session is active. Verified: compliant→break→compliant round trip confirmed via REST against the deployed rules, and cleanup-on-stop confirmed (doc gone after Stop).
-- Break alerts (commit pending): real FCM needs a Cloud Function + Blaze billing, which this project isn't using, so this is a documented mock instead -- each device's own live Firestore listener (from the sync above) raises a local notification when a groupmate transitions into BREAK. Verified: cold app launch with an existing BREAK in Firestore correctly shows "X broke their lock-in · in GroupName". Real limitation vs actual FCM: only fires while this device's app process is alive, can't wake a fully force-closed app.
-- Alarm cap: alarm auto-silences after 2 minutes regardless of group response (BREAK state itself is unaffected, just the sound) -- implemented, logic-reviewed, not runtime-verified (would need a real 2-minute wait).
-- Not yet built: mute-approval flow (a breaker's alarm silence requiring N group approvals) -- the room `muteApprovalCount` setting exists on the group doc but nothing reads it yet.
+**Real bug found and fixed:** a `LazyColumn` key collision crash from leftover request state after an interrupted accept — see `ARCHITECTURE.md`'s Key Decisions & Gotchas for the general pattern.
 
-## What's next
-Finish Stage 4. Still open from the brief itself and not yet addressed:
-- The onboarding/permission-priming screen (explicitly called out as a real design deliverable)
-- The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration? (needs a decision before Stage 4 implementation)
+### Stage 4 — Group Lock-Ins (in progress, commits `7a707c1`→`5ff1201`)
+- ✅ Group data model + create/join (owner-managed membership picked from friends at creation — no accept-step join flow, a documented scope simplification).
+- ✅ Real-time group session state sync — live compliance pushed to Firestore per member, shown as a colored-dot list on Home during an active group session.
+- ✅ Break alerts — mocked (no Blaze billing for real FCM/Cloud Functions): a local notification fires via the same live listener when a groupmate breaks. Verified: cold app launch with an existing BREAK doc correctly raised a notification.
+- ✅ Alarm cap — auto-silences after 2 min regardless of group response. Implemented and logic-reviewed; not runtime-verified (would need a real 2-minute wait).
+- ❌ **Not yet built: mute-approval flow.** The room `muteApprovalCount` setting exists on the group doc, but nothing reads or acts on it yet — a breaker's alarm can't currently be muted by group approval at all.
 
-## Codebase map
-All Kotlin under `app/src/main/java/com/example/lockin/`:
-- `MainActivity.kt` — screens (Auth gate, Permission prompt, Home, Allowlist) + navigation shell; owns the `AuthStateListener` and the allowlist snapshot-listener lifecycle
-- `Theme.kt` — colors, typography, `LockInTheme`
-- `UsageAccess.kt` — Usage Access permission check + foreground-app polling
-- `InstalledApps.kt` — queries launchable apps for the allowlist
-- `AllowlistStore.kt` / `AllowlistScreen.kt` — allowlist persistence + UI
-- `LockInSessionStore.kt` — session active/start-time persistence + start/stop helpers
-- `LockInService.kt` — foreground service: notification, screen-state receiver, compliance polling loop, alarm
-- `ScreenStateReceiver.kt` — wraps `SCREEN_ON`/`SCREEN_OFF` broadcast registration
-- `ComplianceMonitor.kt` — compliance model + `LockInMonitor` shared state (Service writes, UI observes)
-- `AuthScreen.kt` — email/password sign-in/sign-up UI (no success callback; MainActivity observes auth state)
-- `UserProfileStore.kt` — writes the Firestore `users/{uid}` profile doc on sign-up
-- `AllowlistSync.kt` — two-way allowlist sync (push on toggle, snapshot listener pulls into SharedPreferences)
-- `SessionHistoryStore.kt` — writes one `users/{uid}/sessions` doc per finished session
-- `FriendRequestStore.kt` — email search, send/accept/decline friend requests
-- `FriendsStore.kt` — friends-list listener, one-time fetch of a friend's allowlist
-- `FriendsScreen.kt` — add-friend, incoming requests, friends list with expandable allowlist view
+## Known, Currently-Live Limitations
+Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
+- Airplane mode defeats detection.
+- Force-stopping the app leaves a phantom "active" session in the UI until manually stopped.
+- Opening Lock-In itself always counts as compliant — the alarm can be silenced just by switching back to the app without actually returning to focus.
+- Break alerts only fire while the observing device's own app process is alive (mock, not real FCM — see `ARCHITECTURE.md`).
+- `currentForegroundApp()`'s 1-hour lookback window is a stopgap, not the technically correct fix.
 
-Firebase config files at the project root: `firestore.rules` (owner-only rules), `firebase.json`, `.firebaserc` (default project `lockin-app-sg`).
-
-**Renamed (2026-07-14):** package is now `com.example.lockin`, app displays as "Lock-In" everywhere (launcher, notification, top bar). Previously `com.example.firstproject` / "First Project," the leftover Android Studio scaffold name. Verified with a clean build + fresh install after uninstalling the old package (different `applicationId` = a distinct app identity to Android).
+## What's Next
+1. **Mute-approval flow** to finish Stage 4 (a breaker's alarm-mute request needs N group approvals per the room's `muteApprovalCount`).
+2. **Onboarding/permission-priming screen** — still open from `CONTEXT.md`, a named real deliverable, not yet started.
+3. After Stage 4: Stage 5 (Social Feed & Gamification).
