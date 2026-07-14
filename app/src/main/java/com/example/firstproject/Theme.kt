@@ -23,6 +23,9 @@ val CalmBackground = Color(0xFFFBFAFF)
 val CalmOnBackground = Color(0xFF2B2640)
 val CalmSurfaceVariant = Color(0xFFF1EEFB)
 val CalmOnSurfaceVariant = Color(0xFF453F5C)
+val CoralError = Color(0xFFE8637A)
+val CoralErrorContainer = Color(0xFFFFE1E6)
+val CoralOnErrorContainer = Color(0xFF5C1626)
 
 private val LockInLightColors = lightColorScheme(
     primary = LavenderPrimary,
@@ -37,6 +40,10 @@ private val LockInLightColors = lightColorScheme(
     onSurface = CalmOnBackground,
     surfaceVariant = CalmSurfaceVariant,
     onSurfaceVariant = CalmOnSurfaceVariant,
+    error = CoralError,
+    onError = Color.White,
+    errorContainer = CoralErrorContainer,
+    onErrorContainer = CoralOnErrorContainer,
 )
 
 private val LockInDarkColors = darkColorScheme(
@@ -52,6 +59,10 @@ private val LockInDarkColors = darkColorScheme(
     onSurface = Color(0xFFEAE7F5),
     surfaceVariant = Color(0xFF2A2638),
     onSurfaceVariant = Color(0xFFD9D5EA),
+    error = Color(0xFFFFB3C1),
+    onError = Color(0xFF5C1626),
+    errorContainer = Color(0xFF7A2B3D),
+    onErrorContainer = Color(0xFFFFE1E6),
 )
 
 @OptIn(ExperimentalTextApi::class)

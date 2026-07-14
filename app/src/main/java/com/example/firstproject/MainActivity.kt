@@ -51,6 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -268,11 +269,15 @@ private fun SessionControls() {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (session.isActive) {
+            val complianceStatus by LockInMonitor.complianceState.collectAsState()
+            val isBreak = complianceStatus.state == ComplianceState.BREAK
+            val statusColor = if (isBreak) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+
             Text(
-                text = "LOCK-IN ACTIVE",
+                text = if (isBreak) "BREAK DETECTED" else "LOCK-IN ACTIVE",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary
+                color = statusColor
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
@@ -287,7 +292,7 @@ private fun SessionControls() {
                     stopLockInSession(context)
                     session = loadSession(context)
                 },
-                containerColor = MaterialTheme.colorScheme.secondary,
+                containerColor = statusColor,
                 icon = Icons.Rounded.Close,
                 text = "Stop Lock-In"
             )
