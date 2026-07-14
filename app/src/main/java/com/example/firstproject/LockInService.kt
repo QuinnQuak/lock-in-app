@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 
 private const val CHANNEL_ID = "lockin_session"
@@ -13,16 +14,26 @@ private const val NOTIFICATION_ID = 1
 
 class LockInService : Service() {
 
+    private var isScreenOn = true
+    private val screenStateReceiver = ScreenStateReceiver { isOn -> isScreenOn = isOn }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        isScreenOn = getSystemService(PowerManager::class.java).isInteractive
+        screenStateReceiver.register(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification())
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        screenStateReceiver.unregister(this)
     }
 
     private fun createNotificationChannel() {
