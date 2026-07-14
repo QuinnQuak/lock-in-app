@@ -11,6 +11,7 @@
 - **Allowlist sync (`AllowlistSync.kt`):** Firestore (`users/{uid}.allowlist`) is the source of truth; SharedPreferences stays the synchronous local cache the service polls. Toggles write both; a snapshot listener (owned by MainActivity via `DisposableEffect(signedIn)`) pulls remote changes into the cache. Verified both directions on-device (remote REST edit reached SharedPreferences in seconds). Last-write-wins conflicts, fine for one device.
 - **Session history (`SessionHistoryStore.kt`):** on service teardown, one doc per session under `users/{uid}/sessions` — startedAt/endedAt, durationSeconds, breakCount (transition-edge counted in `LockInService`). uid + start time are captured at service *start* because stop-flow clears both stores before `onDestroy` runs. Verified: a 43s session with one deliberate break recorded `breakCount: 1`. Force-stopped sessions are never recorded (known loophole, Stage 6).
 - **Tooling note:** Firebase CLI runs via a portable Node install at `%LOCALAPPDATA%\node-portable\node-v20.18.2-win-x64\firebase.cmd` (logged in as the owner account). No global Node/npm on this machine.
+- **Dev/test account:** `testuser@lockin.test` (throwaway, emulator-only; trivial dev password). Backend can be inspected at https://console.firebase.google.com/project/lockin-app-sg — Authentication for accounts, Firestore Database for docs.
 
 ## Earlier stages: Stage 0 and Stage 1 complete and verified
 
@@ -41,7 +42,7 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 
 ## Codebase map
 All Kotlin under `app/src/main/java/com/example/lockin/`:
-- `MainActivity.kt` — screens (Permission prompt, Home, Allowlist) + navigation shell
+- `MainActivity.kt` — screens (Auth gate, Permission prompt, Home, Allowlist) + navigation shell; owns the `AuthStateListener` and the allowlist snapshot-listener lifecycle
 - `Theme.kt` — colors, typography, `LockInTheme`
 - `UsageAccess.kt` — Usage Access permission check + foreground-app polling
 - `InstalledApps.kt` — queries launchable apps for the allowlist
