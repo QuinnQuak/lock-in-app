@@ -1,14 +1,10 @@
 package com.example.lockin
 
-import android.Manifest
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -67,7 +63,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.google.firebase.Firebase
@@ -75,10 +70,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Auth, Permission, Home, Allowlist, Friends, Groups }
+private enum class Screen { Auth, Onboarding, Home, Allowlist, Friends, Groups }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
+    private var onboardingComplete by mutableStateOf(false)
     private var signedIn by mutableStateOf(false)
 
     // Fires immediately on registration with the current state, then again on
@@ -123,7 +119,9 @@ class MainActivity : ComponentActivity() {
                 var subScreen by remember { mutableStateOf<Screen?>(null) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
-                    !usageAccessGranted -> Screen.Permission
+                    // Usage Access is a hard requirement, so revoking it later
+                    // drops the user back into onboarding (at the grant step).
+                    !usageAccessGranted || !onboardingComplete -> Screen.Onboarding
                     subScreen != null -> subScreen!!
                     else -> Screen.Home
                 }
@@ -160,8 +158,12 @@ class MainActivity : ComponentActivity() {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 when (screen) {
                                     Screen.Auth -> AuthScreen()
-                                    Screen.Permission -> PermissionPrompt(
-                                        onRequestAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+                                    Screen.Onboarding -> OnboardingScreen(
+                                        usageAccessGranted = usageAccessGranted,
+                                        onOpenUsageAccessSettings = {
+                                            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                                        },
+                                        onFinish = { onboardingComplete = true }
                                     )
                                     Screen.Home -> HomeScreen(
                                         onOpenAllowlist = { subScreen = Screen.Allowlist },
@@ -190,7 +192,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // The Usage Access grant happens in the system settings app, so resume
+        // is the only place we learn about it.
         usageAccessGranted = hasUsageAccessPermission(this)
+        onboardingComplete = isOnboardingComplete(this)
     }
 
     override fun onDestroy() {
@@ -224,39 +229,6 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
     )
-}
-
-@Composable
-private fun PermissionPrompt(onRequestAccess: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .padding(32.dp)
-            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(28.dp))
-            .padding(28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Let's keep you honest",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "Lock-In needs Usage Access to see which app is open, so it can tell your group if you break a session.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimaryContainer,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        Button(
-            onClick = onRequestAccess,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-        ) {
-            Text("Grant Usage Access")
-        }
-    }
 }
 
 @Composable
@@ -350,13 +322,6 @@ private fun SessionControls() {
             )
         } else emptyList()
         onDispose { regs.forEach { it.remove() } }
-    }
-
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) {
-        startLockInSession(context, selectedGroupId)
-        session = loadSession(context)
     }
 
     LaunchedEffect(session.isActive, session.startTimeMillis) {
@@ -510,14 +475,14 @@ private fun SessionControls() {
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
+            // Notifications are primed during onboarding now, so starting a
+            // session no longer detours through a permission dialog. If the
+            // user declined there, break alerts and the service notification
+            // are silently missing -- degraded, but the session still runs.
             PressableButton(
                 onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        startLockInSession(context, selectedGroupId)
-                        session = loadSession(context)
-                    }
+                    startLockInSession(context, selectedGroupId)
+                    session = loadSession(context)
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 icon = Icons.Rounded.Lock,

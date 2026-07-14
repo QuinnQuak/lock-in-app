@@ -69,7 +69,7 @@ Explicitly deferred past MVP: broader social feed, streaks/kudos, gamified profi
 - **Stage 7 — Polish & Portfolio Packaging:** Onboarding flow, README, demo video/screenshots for portfolio presentation.
 
 ## Open Design Questions
-- **Onboarding & Permission Priming:** Android's Usage Access permission prompt is a scary, deeply-buried system setting most users have never touched, and asking for it cold at signup risks losing users before they experience the core loop. Plan a **permission-priming screen** (shown before the OS system dialog) that frames the ask in product terms — e.g., "we need this to keep your friends honest." Treat as a real design deliverable, not an afterthought. **Not yet built** as of Stage 4.
+- ~~**Onboarding & Permission Priming**~~ — **Built (2026-07-15).** A 5-step priming flow now precedes the OS dialogs, framing both asks in product terms and walking the user through the Usage Access settings list by name. See `PROGRESS.md` and `ARCHITECTURE.md`. The one judgment call worth recording: **notification permission was folded into the same flow** rather than left as an ad-hoc prompt on session start. Break alerts *are* the group mechanic, so a cold deny at the Start button silently kills the social layer with no explanation; priming it alongside Usage Access frames it as "this is how you hear about your friends."
 
 ## Working Agreement for the Agent
 - Move stage by stage; don't jump ahead to social/gamification features before Stage 1's detection core is proven reliable.
