@@ -1,15 +1,69 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Owner-only access: a signed-in user can read/write their own
-    // users/{uid} document and everything nested under it (e.g. sessions).
-    // Stage 3 (friend-visible allowlists) will deliberately loosen reads.
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
 
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // A friendRequest's mere existence at id "fromUid_toUid" *is* its
+    // pending state — there's no separate status field. This lets the
+    // reciprocal friends-doc write below key off it directly instead of
+    // needing a status flip to be visible mid-batch (Firestore evaluates
+    // a batch's rules against the pre-batch state, so a status change
+    // earlier in the same batch isn't visible to a later write in it).
+    function existsPendingRequest(fromUid, toUid) {
+      return exists(/databases/$(database)/documents/friendRequests/$(fromUid + '_' + toUid));
+    }
+
+    function isFriendOf(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid));
+    }
+
+    match /users/{uid} {
+      // Owners can always read/write their own doc. Friends can read it
+      // too -- this is what makes the allowlist friend-visible, the whole
+      // point of Stage 3. Friends can never write.
+      allow read: if isSignedIn() && (request.auth.uid == uid || isFriendOf(uid));
+      allow write: if isSignedIn() && request.auth.uid == uid;
+
+      // Session history isn't part of the transparency mechanic (that's
+      // a Stage 5 social-feed concern) -- stays strictly owner-only.
+      match /sessions/{sessionId} {
+        allow read, write: if isSignedIn() && request.auth.uid == uid;
       }
+
+      match /friends/{friendUid} {
+        allow read, delete: if isSignedIn() && request.auth.uid == uid;
+
+        // The owner can always write their own friends list. The *other*
+        // party in a request they just accepted may also create the
+        // reciprocal doc (their own uid, under the sender's subcollection)
+        // -- this is what makes friendship symmetric with no Cloud Function.
+        allow create: if isSignedIn() &&
+          (request.auth.uid == uid ||
+           (request.auth.uid == friendUid && existsPendingRequest(uid, friendUid)));
+      }
+    }
+
+    // Public directory: lets a signed-in user look someone up by email to
+    // send a friend request, without exposing the private users/{uid} doc.
+    match /userSearch/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // One doc per (fromUid, toUid) pair, id "fromUid_toUid". Only the
+    // sender can create it; either party can read or delete it (accepting
+    // deletes it as a final cleanup step, declining just deletes it).
+    match /friendRequests/{requestId} {
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.fromUid &&
+        request.resource.data.fromUid != request.resource.data.toUid &&
+        requestId == request.resource.data.fromUid + '_' + request.resource.data.toUid;
+
+      allow read, delete: if isSignedIn() &&
+        request.auth.uid in [resource.data.fromUid, resource.data.toUid];
     }
   }
 }

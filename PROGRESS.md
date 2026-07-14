@@ -2,7 +2,14 @@
 
 > This is a living status doc, not a design doc — for the "what and why" of the project, see `PROJECT_BRIEF.md`. This file exists so a fresh Claude Code session (or you) can get oriented in one read, without depending on memory carrying over across sessions. Update it after each meaningful milestone.
 
-## Status: Stages 0, 1, and 2 complete and verified
+## Status: Stages 0, 1, 2, and 3 complete and verified
+
+### Stage 3 — Friends & Visible Allowlists (complete)
+- **Data model, no Cloud Functions:** `friendRequests/{fromUid}_{toUid}` — the doc's mere *existence* is its pending state (no status field), so accept/decline is just create/delete, sidestepping a real Firestore gotcha: a batch's security rules evaluate against the *pre-batch* state, so a status flip earlier in the same batch isn't visible to a later write in it. `users/{uid}/friends/{friendUid}` is the symmetric friendship — created via a two-step accept (`FriendRequestStore.kt`): batch-create both directions' friend docs (gated by the still-existing pending request), then delete the request as cleanup. `userSearch/{uid}` is a public email→uid directory (readable by any signed-in user) so requests can be sent without exposing the private `users/{uid}` doc.
+- **Security rules:** `users/{uid}` reads now allow the owner OR a friend (`isFriendOf()`, an `exists()` check on the friends subcollection) — this is what makes the allowlist friend-visible, Stage 3's whole point. Session history stays owner-only. Verified via raw REST calls (not just the app): a non-friend stranger gets 403 on both reading a profile and forging a friendship doc; a friend read and the public search directory both succeed.
+- **UI (`FriendsScreen.kt`):** add-by-email, incoming requests with accept/decline, friends list with an expandable read-only allowlist view (reuses `appLabelFor()` from Stage 1).
+- **Real bug found and fixed:** a transient network blip during testing killed the app mid-accept, after the friend docs were created but before the request-cleanup delete ran — leaving a friendRequest whose `fromUid` was now also a friend. Both `items()` blocks in the Friends `LazyColumn` keyed by raw uid, and Compose requires **unique keys across an entire LazyColumn, not per items() block** — so this leftover state crashed the app with `IllegalArgumentException: Key "..." was already used` the instant the screen rendered. Fixed by prefixing keys (`"request-$uid"` / `"friend-$uid"`) and, since a similar leftover could recur from any interrupted accept, added a self-heal: any incoming request whose sender is already a friend is filtered from the list and quietly deleted. Worth remembering as a general LazyColumn pattern, not just a one-off fix.
+- Verified fully end-to-end with two real accounts (`testuser@lockin.test` and `testuser2@lockin.test`) signed in alternately on the one emulator: search → send → accept → symmetric friendship on both sides → allowlist visible both directions → non-friend correctly denied.
 
 ### Stage 2 — Accounts & Cloud Sync (complete)
 - **Firebase project:** `lockin-app-sg` (display name "Lock-In"), owned by quakjunehao@gmail.com, Firestore in `asia-southeast1`. Config lives in `app/google-services.json` — **gitignored**, re-download via Firebase console → Project settings → Your apps if missing.
@@ -36,9 +43,9 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 - Opening Lock-In itself always counts as compliant (intentional, so checking your session doesn't punish you) — but this means the alarm can be silenced just by switching back to the app without actually returning to focus
 
 ## What's next
-**Stage 3 — Friends & visible allowlists** (friend request system; allowlists become friend-readable, which means loosening the owner-only Firestore rules deliberately). Still open from the brief itself and not yet addressed:
+**Stage 4 — Group Lock-Ins** (create/join group sessions, real-time Firestore session state, FCM push on break). Still open from the brief itself and not yet addressed:
 - The onboarding/permission-priming screen (explicitly called out as a real design deliverable)
-- The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration?
+- The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration? (needs a decision before Stage 4 implementation)
 
 ## Codebase map
 All Kotlin under `app/src/main/java/com/example/lockin/`:
@@ -55,6 +62,9 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 - `UserProfileStore.kt` — writes the Firestore `users/{uid}` profile doc on sign-up
 - `AllowlistSync.kt` — two-way allowlist sync (push on toggle, snapshot listener pulls into SharedPreferences)
 - `SessionHistoryStore.kt` — writes one `users/{uid}/sessions` doc per finished session
+- `FriendRequestStore.kt` — email search, send/accept/decline friend requests
+- `FriendsStore.kt` — friends-list listener, one-time fetch of a friend's allowlist
+- `FriendsScreen.kt` — add-friend, incoming requests, friends list with expandable allowlist view
 
 Firebase config files at the project root: `firestore.rules` (owner-only rules), `firebase.json`, `.firebaserc` (default project `lockin-app-sg`).
 

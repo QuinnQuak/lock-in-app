@@ -74,7 +74,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Auth, Permission, Home, Allowlist }
+private enum class Screen { Auth, Permission, Home, Allowlist, Friends }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
@@ -100,11 +100,11 @@ class MainActivity : ComponentActivity() {
                     onDispose { registration?.remove() }
                 }
 
-                var showAllowlist by remember { mutableStateOf(false) }
+                var subScreen by remember { mutableStateOf<Screen?>(null) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
                     !usageAccessGranted -> Screen.Permission
-                    showAllowlist -> Screen.Allowlist
+                    subScreen != null -> subScreen!!
                     else -> Screen.Home
                 }
 
@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         LockInTopBar(
                             screen = currentScreen,
-                            onBack = { showAllowlist = false }
+                            onBack = { subScreen = null }
                         )
                     },
                     containerColor = MaterialTheme.colorScheme.background
@@ -144,7 +144,8 @@ class MainActivity : ComponentActivity() {
                                         onRequestAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
                                     )
                                     Screen.Home -> HomeScreen(
-                                        onOpenAllowlist = { showAllowlist = true },
+                                        onOpenAllowlist = { subScreen = Screen.Allowlist },
+                                        onOpenFriends = { subScreen = Screen.Friends },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop
                                             // monitoring before the account goes away.
@@ -155,6 +156,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                     Screen.Allowlist -> AllowlistScreen()
+                                    Screen.Friends -> FriendsScreen()
                                 }
                             }
                         }
@@ -178,15 +180,20 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
+    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends
     TopAppBar(
         title = {
             Text(
-                text = if (screen == Screen.Allowlist) "Allowlist" else "Lock-In",
+                text = when (screen) {
+                    Screen.Allowlist -> "Allowlist"
+                    Screen.Friends -> "Friends"
+                    else -> "Lock-In"
+                },
                 fontWeight = FontWeight.SemiBold
             )
         },
         navigationIcon = {
-            if (screen == Screen.Allowlist) {
+            if (isSubScreen) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
@@ -230,7 +237,7 @@ private fun PermissionPrompt(onRequestAccess: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
+private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onSignOut: () -> Unit) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -281,6 +288,9 @@ private fun HomeScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
         TextButton(onClick = onOpenAllowlist) {
             Text("Manage Allowlist")
+        }
+        TextButton(onClick = onOpenFriends) {
+            Text("Friends")
         }
         TextButton(onClick = onSignOut) {
             Text("Sign Out", color = MaterialTheme.colorScheme.onSurfaceVariant)
