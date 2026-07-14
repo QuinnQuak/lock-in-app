@@ -4,6 +4,7 @@ import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Process
 import java.util.concurrent.TimeUnit
 
@@ -34,4 +35,14 @@ fun currentForegroundApp(context: Context): String? {
         }
     }
     return lastForegroundPackage
+}
+
+fun appLabelFor(context: Context, packageName: String): String {
+    val packageManager = context.packageManager
+    return try {
+        val appInfo = packageManager.getApplicationInfo(packageName, 0)
+        packageManager.getApplicationLabel(appInfo).toString()
+    } catch (e: PackageManager.NameNotFoundException) {
+        packageName
+    }
 }

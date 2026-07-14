@@ -2,10 +2,12 @@
     <!-- Base application theme. -->
     <style name="Theme.FirstProject" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_200</item>
+        <item name="colorPrimary">@color/lavender_primary_light</item>
         <item name="colorOnPrimary">@color/black</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondary">@color/sage_secondary_dark</item>
         <item name="colorOnSecondary">@color/black</item>
+        <!-- Window background, matched to the Compose theme's background so there's no flash on launch. -->
+        <item name="android:windowBackground">@color/calm_background_dark</item>
     </style>
 </resources>
