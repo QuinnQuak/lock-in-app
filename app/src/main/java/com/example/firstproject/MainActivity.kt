@@ -1,10 +1,14 @@
 package com.example.firstproject
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,6 +123,8 @@ private fun ForegroundAppStatus(onOpenAllowlist: () -> Unit) {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        SessionControls()
+        Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = "CURRENTLY OPEN",
             style = MaterialTheme.typography.labelMedium,
@@ -140,6 +146,52 @@ private fun ForegroundAppStatus(onOpenAllowlist: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
         TextButton(onClick = onOpenAllowlist) {
             Text("Manage Allowlist")
+        }
+    }
+}
+
+@Composable
+private fun SessionControls() {
+    val context = LocalContext.current
+    var session by remember { mutableStateOf(loadSession(context)) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        startLockInSession(context)
+        session = loadSession(context)
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (session.isActive) {
+            Text(
+                text = "LOCK-IN ACTIVE",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = {
+                    stopLockInSession(context)
+                    session = loadSession(context)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Text("Stop Lock-In")
+            }
+        } else {
+            Button(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        startLockInSession(context)
+                        session = loadSession(context)
+                    }
+                }
+            ) {
+                Text("Start Lock-In")
+            }
         }
     }
 }
