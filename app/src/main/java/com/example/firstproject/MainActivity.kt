@@ -18,6 +18,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,10 +41,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             LockInTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    ForegroundAppScreen(
-                        usageAccessGranted = usageAccessGranted,
-                        onRequestAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
-                    )
+                    var showAllowlist by remember { mutableStateOf(false) }
+                    if (showAllowlist) {
+                        AllowlistScreen(onBack = { showAllowlist = false })
+                    } else {
+                        ForegroundAppScreen(
+                            usageAccessGranted = usageAccessGranted,
+                            onRequestAccess = { startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) },
+                            onOpenAllowlist = { showAllowlist = true }
+                        )
+                    }
                 }
             }
         }
@@ -56,12 +63,12 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ForegroundAppScreen(usageAccessGranted: Boolean, onRequestAccess: () -> Unit) {
+fun ForegroundAppScreen(usageAccessGranted: Boolean, onRequestAccess: () -> Unit, onOpenAllowlist: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (!usageAccessGranted) {
             PermissionPrompt(onRequestAccess)
         } else {
-            ForegroundAppStatus()
+            ForegroundAppStatus(onOpenAllowlist)
         }
     }
 }
@@ -100,7 +107,7 @@ private fun PermissionPrompt(onRequestAccess: () -> Unit) {
 }
 
 @Composable
-private fun ForegroundAppStatus() {
+private fun ForegroundAppStatus(onOpenAllowlist: () -> Unit) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -129,6 +136,10 @@ private fun ForegroundAppStatus() {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        TextButton(onClick = onOpenAllowlist) {
+            Text("Manage Allowlist")
         }
     }
 }
