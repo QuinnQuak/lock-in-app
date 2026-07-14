@@ -45,7 +45,8 @@ Same spirit as the brief's own documented loopholes — real gaps, not oversight
 ## Stage 4 in progress — Group Lock-Ins
 - Data model + create/join done (commit `7a707c1`): `groups/{id}` (owner-managed membership, picked from friends at creation; `muteApprovalCount`). Verified cross-account via Firestore query.
 - Decided: max alarm duration (2 min) caps an unresponsive group's alarm regardless of response.
-- Not yet built: real-time group session state sync, FCM push on break, mute-approval flow, alarm cap enforcement.
+- Real-time session sync done (commit pending): session picks a group via a cycling selector on Home; `LockInService` pushes live compliance state to `groups/{id}/liveStatus/{uid}` each tick, cleared on stop. Home shows a live "GROUP STATUS" list (colored dot per member) while a group session is active. Verified: compliant→break→compliant round trip confirmed via REST against the deployed rules, and cleanup-on-stop confirmed (doc gone after Stop).
+- Not yet built: FCM push on break, mute-approval flow, alarm cap enforcement.
 
 ## What's next
 Finish Stage 4. Still open from the brief itself and not yet addressed:

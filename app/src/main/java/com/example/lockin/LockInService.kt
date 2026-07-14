@@ -40,6 +40,7 @@ class LockInService : Service() {
     // clears the auth state right after — by teardown time both are gone.
     private var sessionStartMillis = 0L
     private var ownerUid: String? = null
+    private var groupId: String? = null
     private var breakCount = 0
     private var wasInBreak = false
 
@@ -48,7 +49,9 @@ class LockInService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        sessionStartMillis = loadSession(this).startTimeMillis
+        val session = loadSession(this)
+        sessionStartMillis = session.startTimeMillis
+        groupId = session.groupId
         ownerUid = Firebase.auth.currentUser?.uid
         isScreenOn = getSystemService(PowerManager::class.java).isInteractive
         screenStateReceiver.register(this)
@@ -71,6 +74,10 @@ class LockInService : Service() {
         if (uid != null && sessionStartMillis > 0) {
             recordSessionToCloud(uid, sessionStartMillis, System.currentTimeMillis(), breakCount)
         }
+        val gid = groupId
+        if (uid != null && gid != null) {
+            clearLiveStatus(gid, uid)
+        }
     }
 
     private fun startMonitoring() {
@@ -80,6 +87,13 @@ class LockInService : Service() {
                 val allowlist = loadAllowlist(this@LockInService)
                 val status = evaluateCompliance(packageName, isScreenOn, foregroundApp, allowlist)
                 LockInMonitor.update(status)
+
+                val gid = groupId
+                val uid = ownerUid
+                if (gid != null && uid != null) {
+                    val displayName = Firebase.auth.currentUser?.displayName ?: "Someone"
+                    pushLiveStatus(gid, uid, displayName, status)
+                }
 
                 if (status.state == ComplianceState.BREAK) {
                     if (!wasInBreak) breakCount++

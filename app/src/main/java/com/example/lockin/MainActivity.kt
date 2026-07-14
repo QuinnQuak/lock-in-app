@@ -20,6 +20,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -309,11 +310,25 @@ private fun SessionControls() {
     val context = LocalContext.current
     var session by remember { mutableStateOf(loadSession(context)) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
+    var groups by remember { mutableStateOf<List<LockInGroup>>(emptyList()) }
+    var selectedGroupId by remember { mutableStateOf<String?>(null) }
+    var memberStatuses by remember { mutableStateOf<List<MemberStatus>>(emptyList()) }
+
+    val myUid = Firebase.auth.currentUser?.uid
+    DisposableEffect(myUid) {
+        val reg = myUid?.let { listenMyGroups(it) { g -> groups = g } }
+        onDispose { reg?.remove() }
+    }
+    DisposableEffect(session.groupId) {
+        val gid = session.groupId
+        val reg = if (gid != null) listenGroupLiveStatus(gid) { memberStatuses = it } else null
+        onDispose { reg?.remove() }
+    }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
-        startLockInSession(context)
+        startLockInSession(context, selectedGroupId)
         session = loadSession(context)
     }
 
@@ -353,13 +368,51 @@ private fun SessionControls() {
                 icon = Icons.Rounded.Close,
                 text = "Stop Lock-In"
             )
+            if (session.groupId != null && memberStatuses.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "GROUP STATUS",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                memberStatuses.forEach { member ->
+                    val dotColor = if (member.state == ComplianceState.BREAK) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.secondary
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(dotColor, RoundedCornerShape(50))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(member.displayName, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
         } else {
+            if (groups.isNotEmpty()) {
+                Text(
+                    text = "Session: ${groups.find { it.id == selectedGroupId }?.name ?: "Solo"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        val ids = listOf<String?>(null) + groups.map { it.id }
+                        val nextIndex = (ids.indexOf(selectedGroupId) + 1) % ids.size
+                        selectedGroupId = ids[nextIndex]
+                    }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             PressableButton(
                 onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
-                        startLockInSession(context)
+                        startLockInSession(context, selectedGroupId)
                         session = loadSession(context)
                     }
                 },

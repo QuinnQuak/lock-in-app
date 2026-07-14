@@ -75,6 +75,15 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.ownerUid &&
         request.auth.uid in request.resource.data.memberUids;
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
+
+      // Live per-member compliance state during a group session. Each
+      // member writes only their own doc; any member can read the group's.
+      match /liveStatus/{uid} {
+        allow read: if isSignedIn() &&
+          request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+        allow write: if isSignedIn() && request.auth.uid == uid &&
+          request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+      }
     }
   }
 }
