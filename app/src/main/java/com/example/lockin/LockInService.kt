@@ -15,6 +15,8 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,11 +35,21 @@ class LockInService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var mediaPlayer: MediaPlayer? = null
 
+    // Captured at start rather than read in onDestroy: stopLockInSession()
+    // clears the session store *before* stopping the service, and sign-out
+    // clears the auth state right after — by teardown time both are gone.
+    private var sessionStartMillis = 0L
+    private var ownerUid: String? = null
+    private var breakCount = 0
+    private var wasInBreak = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        sessionStartMillis = loadSession(this).startTimeMillis
+        ownerUid = Firebase.auth.currentUser?.uid
         isScreenOn = getSystemService(PowerManager::class.java).isInteractive
         screenStateReceiver.register(this)
         startMonitoring()
@@ -54,6 +66,11 @@ class LockInService : Service() {
         serviceScope.cancel()
         stopAlarm()
         LockInMonitor.reset()
+
+        val uid = ownerUid
+        if (uid != null && sessionStartMillis > 0) {
+            recordSessionToCloud(uid, sessionStartMillis, System.currentTimeMillis(), breakCount)
+        }
     }
 
     private fun startMonitoring() {
@@ -65,8 +82,11 @@ class LockInService : Service() {
                 LockInMonitor.update(status)
 
                 if (status.state == ComplianceState.BREAK) {
+                    if (!wasInBreak) breakCount++
+                    wasInBreak = true
                     startAlarm()
                 } else {
+                    wasInBreak = false
                     stopAlarm()
                 }
 

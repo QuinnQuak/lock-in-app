@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 
 @Composable
 fun AllowlistScreen() {
@@ -50,6 +52,7 @@ fun AllowlistScreen() {
                         val updated = if (isAllowed) allowlist + app.packageName else allowlist - app.packageName
                         allowlist = updated
                         saveAllowlist(context, updated)
+                        Firebase.auth.currentUser?.uid?.let { pushAllowlist(it, updated) }
                     }
                 )
             }

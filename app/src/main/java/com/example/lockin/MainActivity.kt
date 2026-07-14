@@ -50,6 +50,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -90,6 +91,15 @@ class MainActivity : ComponentActivity() {
         Firebase.auth.addAuthStateListener(authStateListener)
         setContent {
             LockInTheme {
+                // While signed in, mirror the Firestore allowlist into the
+                // local SharedPreferences cache; torn down on sign-out.
+                DisposableEffect(signedIn) {
+                    val registration = if (signedIn) {
+                        Firebase.auth.currentUser?.uid?.let { startAllowlistSync(this@MainActivity, it) }
+                    } else null
+                    onDispose { registration?.remove() }
+                }
+
                 var showAllowlist by remember { mutableStateOf(false) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
