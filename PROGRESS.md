@@ -30,7 +30,7 @@ Per the staged plan in `PROJECT_BRIEF.md`, **Stage 2 (Firebase Auth + Firestore 
 - The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration?
 
 ## Codebase map
-All Kotlin under `app/src/main/java/com/example/firstproject/`:
+All Kotlin under `app/src/main/java/com/example/lockin/`:
 - `MainActivity.kt` — screens (Permission prompt, Home, Allowlist) + navigation shell
 - `Theme.kt` — colors, typography, `LockInTheme`
 - `UsageAccess.kt` — Usage Access permission check + foreground-app polling
@@ -41,4 +41,4 @@ All Kotlin under `app/src/main/java/com/example/firstproject/`:
 - `ScreenStateReceiver.kt` — wraps `SCREEN_ON`/`SCREEN_OFF` broadcast registration
 - `ComplianceMonitor.kt` — compliance model + `LockInMonitor` shared state (Service writes, UI observes)
 
-Package is still `com.example.firstproject` / project name "First Project" — never renamed from the original Android Studio scaffold. Worth renaming before Stage 7 (portfolio packaging), not urgent before then.
+**Renamed (2026-07-14):** package is now `com.example.lockin`, app displays as "Lock-In" everywhere (launcher, notification, top bar). Previously `com.example.firstproject` / "First Project," the leftover Android Studio scaffold name. Verified with a clean build + fresh install after uninstalling the old package (different `applicationId` = a distinct app identity to Android).
