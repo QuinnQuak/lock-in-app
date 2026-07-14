@@ -39,7 +39,7 @@ fun AllowlistScreen() {
             text = "Apps that stay compliant during a lock-in.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -63,17 +63,17 @@ private fun AllowlistRow(app: InstalledApp, allowed: Boolean, onToggle: (Boolean
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Image(
             bitmap = remember(app.packageName) { app.icon.toBitmap().asImageBitmap() },
             contentDescription = null,
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
         )
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(18.dp))
         Text(
             text = app.label,
             style = MaterialTheme.typography.bodyLarge,
