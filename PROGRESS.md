@@ -1,0 +1,44 @@
+# Progress Handover
+
+> This is a living status doc, not a design doc — for the "what and why" of the project, see `PROJECT_BRIEF.md`. This file exists so a fresh Claude Code session (or you) can get oriented in one read, without depending on memory carrying over across sessions. Update it after each meaningful milestone.
+
+## Status: Stage 0 and Stage 1 complete and verified
+
+Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, or logcat depending on what a screenshot couldn't show), not just compiled.
+
+### Stage 0 — Environment
+Kotlin + Jetpack Compose scaffold, git initialized, hello-world verified running.
+
+### Stage 1 — Solo Lock-In Core (all 4 deliverables done)
+1. **Foreground-app + screen-on/off detection** — `UsageStatsManager` polling (`UsageAccess.kt`) + a runtime-registered `BroadcastReceiver` for the protected `SCREEN_ON`/`SCREEN_OFF` broadcasts (`ScreenStateReceiver.kt`). Note: `currentForegroundApp()` uses a 1-hour lookback window, which is a stopgap — the technically correct fix is to query from the session's start time instead of any fixed window (not yet done).
+2. **Personal allowlist** (`AllowlistScreen.kt`, `AllowlistStore.kt`, `InstalledApps.kt`) — real installed apps with icons, toggleable, persisted via `SharedPreferences`.
+3. **Session start/stop** (`LockInService.kt`, `LockInSessionStore.kt`) — a real foreground `Service`, not just an Activity toggle, so monitoring survives backgrounding.
+4. **Break detection + alarm** (`ComplianceMonitor.kt`) — compliance evaluated every 1s (screen off, own app, or allowlisted app = compliant; else break); on break, a looping `MediaPlayer` alarm + vibration starts, confirmed via `dumpsys audio` (not just internal state).
+
+### Visual design
+Custom `LockInTheme` (`Theme.kt`): soft lavender/sage/coral pastel palette (light + dark), Quicksand variable font app-wide, `Scaffold` + top bar with spring-based screen transitions, springy button press feedback. Chosen direction: "soft & tactile," explicitly not a mascot/character (checked against the brief's "avoid childish" guidance).
+
+## Known, deliberately accepted limitations
+Same spirit as the brief's own documented loopholes — real gaps, not oversights:
+- Airplane mode defeats detection (brief's original)
+- Force-stopping the app isn't prevented, and leaves a **phantom "active" session** in the UI (growing timer, no actual service running) until the user manually stops it
+- Opening Lock-In itself always counts as compliant (intentional, so checking your session doesn't punish you) — but this means the alarm can be silenced just by switching back to the app without actually returning to focus
+
+## What's next
+Per the staged plan in `PROJECT_BRIEF.md`, **Stage 2 (Firebase Auth + Firestore accounts/sync)** is next in sequence. Still open from the brief itself and not yet addressed:
+- The onboarding/permission-priming screen (explicitly called out as a real design deliverable)
+- The Stage 4 open question: does an unresponsive group need a grace period / max alarm duration?
+
+## Codebase map
+All Kotlin under `app/src/main/java/com/example/firstproject/`:
+- `MainActivity.kt` — screens (Permission prompt, Home, Allowlist) + navigation shell
+- `Theme.kt` — colors, typography, `LockInTheme`
+- `UsageAccess.kt` — Usage Access permission check + foreground-app polling
+- `InstalledApps.kt` — queries launchable apps for the allowlist
+- `AllowlistStore.kt` / `AllowlistScreen.kt` — allowlist persistence + UI
+- `LockInSessionStore.kt` — session active/start-time persistence + start/stop helpers
+- `LockInService.kt` — foreground service: notification, screen-state receiver, compliance polling loop, alarm
+- `ScreenStateReceiver.kt` — wraps `SCREEN_ON`/`SCREEN_OFF` broadcast registration
+- `ComplianceMonitor.kt` — compliance model + `LockInMonitor` shared state (Service writes, UI observes)
+
+Package is still `com.example.firstproject` / project name "First Project" — never renamed from the original Android Studio scaffold. Worth renaming before Stage 7 (portfolio packaging), not urgent before then.
