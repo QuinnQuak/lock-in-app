@@ -20,6 +20,11 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid));
     }
 
+    function isGroupMember(groupId) {
+      return request.auth.uid in
+        get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+    }
+
     match /users/{uid} {
       // Owners can always read/write their own doc. Friends can read it
       // too -- this is what makes the allowlist friend-visible, the whole
@@ -83,6 +88,31 @@ service cloud.firestore {
           request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
         allow write: if isSignedIn() && request.auth.uid == uid &&
           request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+      }
+
+      // A breaker asking the group to silence their alarm. Same shape as
+      // liveStatus: only the breaker writes their own request doc, any
+      // member can see it (they're the ones being asked).
+      match /muteRequests/{uid} {
+        allow read: if isSignedIn() && isGroupMember(groupId);
+        allow write: if isSignedIn() && request.auth.uid == uid && isGroupMember(groupId);
+      }
+
+      // One doc per (breaker, approver) pair, id "breakerUid_approverUid".
+      // Only the approver can create their own approval, and never for
+      // themselves -- otherwise a breaker could self-approve past the
+      // room's threshold, which would gut the whole mechanic. Either party
+      // may delete it (the breaker cleans up when the break ends).
+      match /muteApprovals/{approvalId} {
+        allow read: if isSignedIn() && isGroupMember(groupId);
+
+        allow create: if isSignedIn() && isGroupMember(groupId) &&
+          request.auth.uid == request.resource.data.approverUid &&
+          request.resource.data.approverUid != request.resource.data.breakerUid &&
+          approvalId == request.resource.data.breakerUid + '_' + request.resource.data.approverUid;
+
+        allow delete: if isSignedIn() &&
+          request.auth.uid in [resource.data.breakerUid, resource.data.approverUid];
       }
     }
   }

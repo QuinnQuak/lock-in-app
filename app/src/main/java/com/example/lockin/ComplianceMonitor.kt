@@ -17,12 +17,23 @@ object LockInMonitor {
     private val _complianceState = MutableStateFlow(initialStatus)
     val complianceState: StateFlow<ComplianceStatus> = _complianceState.asStateFlow()
 
+    // Identifies the current break (the millisecond it started), 0 when
+    // compliant. The Service sets it; the UI needs it to stamp a mute
+    // request so approvals can't carry over from a previous break.
+    private val _breakId = MutableStateFlow(0L)
+    val breakId: StateFlow<Long> = _breakId.asStateFlow()
+
     fun update(status: ComplianceStatus) {
         _complianceState.value = status
     }
 
+    fun setBreakId(id: Long) {
+        _breakId.value = id
+    }
+
     fun reset() {
         _complianceState.value = initialStatus
+        _breakId.value = 0L
     }
 }
 

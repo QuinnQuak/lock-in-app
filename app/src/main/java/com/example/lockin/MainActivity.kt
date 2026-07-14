@@ -332,6 +332,8 @@ private fun SessionControls() {
     var groups by remember { mutableStateOf<List<LockInGroup>>(emptyList()) }
     var selectedGroupId by remember { mutableStateOf<String?>(null) }
     var memberStatuses by remember { mutableStateOf<List<MemberStatus>>(emptyList()) }
+    var muteRequests by remember { mutableStateOf<List<MuteRequest>>(emptyList()) }
+    var muteApprovals by remember { mutableStateOf<List<MuteApproval>>(emptyList()) }
 
     val myUid = Firebase.auth.currentUser?.uid
     DisposableEffect(myUid) {
@@ -340,8 +342,14 @@ private fun SessionControls() {
     }
     DisposableEffect(session.groupId) {
         val gid = session.groupId
-        val reg = if (gid != null) listenGroupLiveStatus(gid) { memberStatuses = it } else null
-        onDispose { reg?.remove() }
+        val regs = if (gid != null) {
+            listOf(
+                listenGroupLiveStatus(gid) { memberStatuses = it },
+                listenMuteRequests(gid) { muteRequests = it },
+                listenMuteApprovals(gid) { muteApprovals = it },
+            )
+        } else emptyList()
+        onDispose { regs.forEach { it.remove() } }
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -387,28 +395,104 @@ private fun SessionControls() {
                 icon = Icons.Rounded.Close,
                 text = "Stop Lock-In"
             )
-            if (session.groupId != null && memberStatuses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "GROUP STATUS",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                memberStatuses.forEach { member ->
-                    val dotColor = if (member.state == ComplianceState.BREAK) {
-                        MaterialTheme.colorScheme.error
+
+            val groupId = session.groupId
+            if (groupId != null) {
+                // How many *other* members must approve, per the room's setting.
+                val threshold = (groups.find { it.id == groupId }?.muteApprovalCount ?: 1)
+                    .coerceAtLeast(1)
+                // An approval only counts for the break it was cast in, and a
+                // breaker's own approval never counts -- mirrors the service
+                // and the security rules.
+                fun approvalsFor(breakerUid: String, breakId: Long) = muteApprovals.count {
+                    it.breakerUid == breakerUid && it.breakId == breakId && it.approverUid != breakerUid
+                }
+
+                // Keyed off breakId, not live compliance: in a group the alarm
+                // outlives the break, and the breaker reaches this screen by
+                // opening Lock-In (which counts as compliant).
+                val myBreakId by LockInMonitor.breakId.collectAsState()
+                if (myUid != null && myBreakId > 0L) {
+                    val myRequest = muteRequests.find { it.breakerUid == myUid && it.breakId == myBreakId }
+                    val approvals = approvalsFor(myUid, myBreakId)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (myRequest == null) {
+                        TextButton(
+                            onClick = {
+                                requestMute(
+                                    groupId,
+                                    myUid,
+                                    Firebase.auth.currentUser?.displayName ?: "Someone",
+                                    myBreakId
+                                )
+                            }
+                        ) {
+                            Text("Ask the group to mute my alarm")
+                        }
                     } else {
-                        MaterialTheme.colorScheme.secondary
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(dotColor, RoundedCornerShape(50))
+                        Text(
+                            text = if (approvals >= threshold) {
+                                "Alarm muted by the group"
+                            } else {
+                                "Waiting on the group — $approvals/$threshold approved"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(member.displayName, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                if (memberStatuses.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "GROUP STATUS",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    memberStatuses.forEach { member ->
+                        val dotColor = if (member.state == ComplianceState.BREAK) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.secondary
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(dotColor, RoundedCornerShape(50))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(member.displayName, style = MaterialTheme.typography.bodyMedium)
+
+                            // A pending request, not a red dot, is what asks for
+                            // your approval -- the breaker's alarm keeps
+                            // sounding even once they're compliant again.
+                            val request = muteRequests.find { it.breakerUid == member.uid }
+                            if (member.uid != myUid && myUid != null && request != null) {
+                                val approvals = approvalsFor(member.uid, request.breakId)
+                                val alreadyApproved = muteApprovals.any {
+                                    it.breakerUid == member.uid &&
+                                        it.approverUid == myUid &&
+                                        it.breakId == request.breakId
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "$approvals/$threshold",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (!alreadyApproved && approvals < threshold) {
+                                    TextButton(
+                                        onClick = {
+                                            approveMute(groupId, member.uid, myUid, request.breakId)
+                                        }
+                                    ) {
+                                        Text("Approve mute")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

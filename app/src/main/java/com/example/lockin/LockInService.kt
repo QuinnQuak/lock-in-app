@@ -17,6 +17,8 @@ import android.os.VibratorManager
 import androidx.core.app.NotificationCompat
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,6 +52,17 @@ class LockInService : Service() {
     private var wasInBreak = false
     private var alarmStartMillis = 0L
     private var alarmCapped = false
+    private var alarmActive = false
+
+    // Group mute-approval state. Written by Firestore listener callbacks on
+    // the main thread, read by the polling loop on a background dispatcher.
+    @Volatile private var currentBreakId = 0L
+    @Volatile private var muteGranted = false
+    @Volatile private var muteApprovals: List<MuteApproval> = emptyList()
+    // Left at MAX_VALUE until the group doc loads: a failed threshold fetch
+    // must never accidentally grant a mute.
+    @Volatile private var muteThreshold = Int.MAX_VALUE
+    private var muteApprovalListener: ListenerRegistration? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -62,7 +75,23 @@ class LockInService : Service() {
         ownerUid = Firebase.auth.currentUser?.uid
         isScreenOn = getSystemService(PowerManager::class.java).isInteractive
         screenStateReceiver.register(this)
+        watchMuteApprovals()
         startMonitoring()
+    }
+
+    // Only meaningful in a group session: pull the room's approval threshold
+    // once, then track approvals aimed at this device's user.
+    private fun watchMuteApprovals() {
+        val gid = groupId ?: return
+        val uid = ownerUid ?: return
+
+        Firebase.firestore.collection("groups").document(gid).get()
+            .addOnSuccessListener { doc ->
+                muteThreshold = (doc.getLong("muteApprovalCount") ?: 1L).toInt().coerceAtLeast(1)
+            }
+        muteApprovalListener = listenMuteApprovals(gid) { approvals ->
+            muteApprovals = approvals.filter { it.breakerUid == uid }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -74,6 +103,7 @@ class LockInService : Service() {
         super.onDestroy()
         screenStateReceiver.unregister(this)
         serviceScope.cancel()
+        muteApprovalListener?.remove()
         stopAlarm()
         LockInMonitor.reset()
 
@@ -84,6 +114,7 @@ class LockInService : Service() {
         val gid = groupId
         if (uid != null && gid != null) {
             clearLiveStatus(gid, uid)
+            clearMuteRequest(gid, uid)
         }
     }
 
@@ -102,25 +133,57 @@ class LockInService : Service() {
                     pushLiveStatus(gid, uid, displayName, status)
                 }
 
-                if (status.state == ComplianceState.BREAK) {
-                    if (!wasInBreak) {
-                        breakCount++
-                        alarmCapped = false
-                    }
-                    wasInBreak = true
-                    val elapsedSinceAlarmStart = if (alarmStartMillis > 0) {
-                        System.currentTimeMillis() - alarmStartMillis
-                    } else 0
-                    if (!alarmCapped && elapsedSinceAlarmStart >= MAX_ALARM_DURATION_MILLIS) {
-                        alarmCapped = true
-                        stopAlarm()
-                    } else if (!alarmCapped) {
-                        startAlarm()
-                    }
-                } else {
-                    wasInBreak = false
+                val inBreak = status.state == ComplianceState.BREAK
+                if (inBreak && !wasInBreak) {
+                    breakCount++
+                    currentBreakId = System.currentTimeMillis()
+                    alarmStartMillis = currentBreakId
+                    alarmActive = true
                     alarmCapped = false
+                    muteGranted = false
+                    LockInMonitor.setBreakId(currentBreakId)
+                }
+                wasInBreak = inBreak
+
+                // Solo: the user manages their own alarm, so returning to a
+                // compliant app silences it. Group: the alarm deliberately
+                // outlives the break -- only group approval or the cap stops
+                // it. Without that, a breaker could silence the alarm just by
+                // opening Lock-In to ask for a mute (this app's own package
+                // counts as compliant), which would make approval pointless.
+                if (alarmActive && gid == null && !inBreak) {
+                    alarmActive = false
+                }
+
+                if (alarmActive) {
+                    // Approvals count only for *this* break, and never the
+                    // breaker's own -- same guard as the security rules.
+                    if (!muteGranted) {
+                        val approvals = muteApprovals.count {
+                            it.breakId == currentBreakId && it.approverUid != uid
+                        }
+                        if (approvals >= muteThreshold) muteGranted = true
+                    }
+                    if (System.currentTimeMillis() - alarmStartMillis >= MAX_ALARM_DURATION_MILLIS) {
+                        alarmCapped = true
+                    }
+                    // Muting silences the alarm only. The BREAK state, the
+                    // group's red dot, and breakCount all stand -- the group
+                    // can forgive the noise, not the record.
+                    if (muteGranted || alarmCapped) alarmActive = false else startAlarm()
+                }
+
+                if (!alarmActive) {
                     stopAlarm()
+                    // The break episode is only over once the alarm has
+                    // stopped *and* the user is actually compliant again;
+                    // until then the pending mute request stays live.
+                    if (!inBreak && currentBreakId != 0L) {
+                        currentBreakId = 0L
+                        muteGranted = false
+                        LockInMonitor.setBreakId(0L)
+                        if (gid != null && uid != null) clearMuteRequest(gid, uid)
+                    }
                 }
 
                 delay(1000)
@@ -130,7 +193,6 @@ class LockInService : Service() {
 
     private fun startAlarm() {
         if (mediaPlayer != null) return
-        alarmStartMillis = System.currentTimeMillis()
         val alarmUri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
             ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
         mediaPlayer = MediaPlayer().apply {
