@@ -5,6 +5,7 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.os.Process
 import java.util.concurrent.TimeUnit
 
@@ -23,7 +24,10 @@ fun hasUsageAccessPermission(context: Context): Boolean {
 fun currentForegroundApp(context: Context): String? {
     val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
     val endTime = System.currentTimeMillis()
-    val startTime = endTime - TimeUnit.MINUTES.toMillis(1)
+    // A wide lookback window, not just "recent" -- an app can sit in the foreground
+    // for a long time with zero new MOVE_TO_FOREGROUND events, and a short window
+    // would let that event age out and wrongly report "no foreground app."
+    val startTime = endTime - TimeUnit.HOURS.toMillis(1)
     val events = usageStatsManager.queryEvents(startTime, endTime)
 
     val event = UsageEvents.Event()
@@ -44,5 +48,13 @@ fun appLabelFor(context: Context, packageName: String): String {
         packageManager.getApplicationLabel(appInfo).toString()
     } catch (e: PackageManager.NameNotFoundException) {
         packageName
+    }
+}
+
+fun appIconFor(context: Context, packageName: String): Drawable? {
+    return try {
+        context.packageManager.getApplicationIcon(packageName)
+    } catch (e: PackageManager.NameNotFoundException) {
+        null
     }
 }
