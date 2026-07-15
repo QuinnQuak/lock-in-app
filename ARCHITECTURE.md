@@ -15,6 +15,10 @@
 - CLI: portable Node + firebase-tools at `%LOCALAPPDATA%\node-portable\node-v20.18.2-win-x64\firebase.cmd` (logged in as the owner). No global Node/npm on this machine; the standalone `firebase.tools` instant binary is broken on this machine (firepit welcome.js JSON crash) — use the portable-Node install instead.
 - Dev/test accounts: `testuser@lockin.test` / `testuser2@lockin.test` (throwaway, trivial passwords, emulator-only). Stage 4's mute-approval test added `mutebreaker@lockin.test` / `muteapprover@lockin.test` (password `MuteTest2026`), plus a `Mute Test` group with `muteApprovalCount: 1` — the second member is driven purely over the Firestore REST API, which is how a two-party flow gets tested on a single emulator. (Note: `muteapprover`'s actual password is *not* `MuteTest2026` — a REST sign-in with it returns `INVALID_LOGIN_CREDENTIALS`; only `mutebreaker` was confirmed working.) Stage 5 step 3 added `feedtester@lockin.test` (password `FeedTest2026`, uid `zfuWQ5G0kCUeo3EtZbYRiIwaIiR2`, Auth display name "Feed Tester") — a **mutual friend of mutebreaker** with one posted 25-min activity doc, the durable fixture behind the friend-visible-feed and friend-kudos tests. The group-lobby rework added a **`Chat Test` group** (id `r1hs2AriiJhQYBTLVsvF`, members mutebreaker + feedtester, `muteApprovalCount: 1`) — the fixture for the chat, lobby-presence, and mute-approval tests (the second party driven over REST).
 
+## Source Control
+- Local git repo; remote `origin` → https://github.com/QuinnQuak/lock-in-app (public), added 2026-07-15 via GitHub CLI (`winget install --id GitHub.cli`, logged in as `QuinnQuak`). `gh` installs to `C:\Program Files\GitHub CLI\gh.exe` — not on PATH in terminals already open at install time; use the full path or a fresh terminal.
+- **Working agreement (2026-07-15): commit locally as usual, but don't `git push` unless Quinn explicitly asks each time** — the remote stays configured, pushing is just paused. See `CONTEXT.md`'s Working Agreement for the Agent.
+
 ## Firestore Data Model
 ```
 users/{uid}                          — displayName, email, createdAt, allowlist (array<string>),
