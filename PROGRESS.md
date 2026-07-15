@@ -80,4 +80,4 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 ## What's Next
 1. **Stage 5, step 6 — polish pass (final step of Stage 5).** "ALARM SOUNDING" header state (replace the misleading green "LOCK-IN ACTIVE" while a sticky alarm blares), an in-app nudge if the user declined notifications during onboarding, and a visual pass over the new Feed/Profile/Achievements screens.
 2. Two Stage-4 loose ends worth folding into a later stage: the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
-3. Working tree still **uncommitted** for all of Stage 5 — Quinn hasn't asked to commit yet.
+3. Stage 5 steps 1–5 committed as `0195042`; only step 6 remains uncommitted (nothing yet — it's the next work).

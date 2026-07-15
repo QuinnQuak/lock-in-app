@@ -3,7 +3,7 @@
 > Read this first. Then, if you need more depth: `CONTEXT.md` (why/product intent), `ARCHITECTURE.md` (how/tech stack/codebase map), `PROGRESS.md` (detailed status log). This file is just the fast-start summary — it doesn't replace those. Also read `CLAUDE.md` for standing working agreements (address the user as Quinn; keep every Markdown doc current after each goal).
 
 ## Where things stand
-Stages 0–4 complete, plus onboarding. **Stage 5 (Social Feed & Gamification) is mid-flight — steps 1–5 done and verified on the emulator:** activity backbone, Feed screen, kudos, streaks + Profile, and achievements. Only the polish pass (step 6) remains. Working tree is **not committed** (no commits made this stage yet — Quinn hasn't asked to commit).
+Stages 0–4 complete, plus onboarding. **Stage 5 (Social Feed & Gamification) is mid-flight — steps 1–5 done and verified on the emulator:** activity backbone, Feed screen, kudos, streaks + Profile, and achievements. Only the polish pass (step 6) remains. Steps 1–5 are committed (`0195042`); the tree is otherwise clean.
 
 ## What's next
 **Stage 5, step 6 — polish pass (the last step of Stage 5).** Three things: (1) an **"ALARM SOUNDING"** header state on Home to replace the misleading green "LOCK-IN ACTIVE" while a sticky alarm is blaring (the header tracks live compliance, so a returned breaker reads as compliant — see `PROGRESS.md` limitations); (2) an **in-app nudge** if the user declined notifications during onboarding (break alerts + the foreground-service notification silently don't appear otherwise); (3) a **visual pass** over the new Feed / Profile / Achievements screens. After step 6, Stage 5 is complete.
