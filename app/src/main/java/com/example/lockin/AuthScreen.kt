@@ -118,7 +118,7 @@ fun AuthScreen() {
                 onValueChange = { displayName = it },
                 label = { Text("Display name") },
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(22.dp),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -129,7 +129,7 @@ fun AuthScreen() {
             label = { Text("Email") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(12.dp))
@@ -140,7 +140,7 @@ fun AuthScreen() {
             singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth()
         )
 

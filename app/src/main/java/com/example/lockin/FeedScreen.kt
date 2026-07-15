@@ -113,7 +113,7 @@ private fun FeedItemCard(item: FeedItem, myUid: String?, myDisplayName: String) 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(26.dp))
             .padding(horizontal = 18.dp, vertical = 14.dp)
     ) {
         Column {

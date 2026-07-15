@@ -211,7 +211,7 @@ private fun OnboardCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(34.dp))
             .padding(28.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

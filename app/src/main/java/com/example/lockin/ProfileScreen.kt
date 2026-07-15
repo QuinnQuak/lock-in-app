@@ -107,7 +107,7 @@ fun ProfileScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(30.dp))
                 .padding(vertical = 28.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -266,7 +266,7 @@ private fun SettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(22.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 16.dp),
@@ -298,7 +298,7 @@ private fun RowScope.AchievementCell(a: Achievement, modifier: Modifier = Modifi
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .background(bg, RoundedCornerShape(18.dp))
+            .background(bg, RoundedCornerShape(24.dp))
             .padding(vertical = 16.dp, horizontal = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top

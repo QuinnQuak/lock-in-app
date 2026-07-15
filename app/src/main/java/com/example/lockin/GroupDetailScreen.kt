@@ -257,7 +257,7 @@ fun GroupDetailScreen(group: LockInGroup) {
                 onValueChange = { draft = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Message") },
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(26.dp),
                 maxLines = 4
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -301,7 +301,7 @@ private fun LobbyCard(
     val remainingMillis = if (isShared) (lobby.endsAtMillis - now).coerceAtLeast(0) else 0L
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -425,7 +425,7 @@ private fun LobbyCreatePanel(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -527,7 +527,7 @@ private fun MessageBubble(msg: GroupMessage, isMine: Boolean) {
         Surface(
             color = if (isMine) MaterialTheme.colorScheme.primaryContainer
             else MaterialTheme.colorScheme.secondaryContainer,
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(22.dp)
         ) {
             Text(
                 text = msg.text,

@@ -73,7 +73,7 @@ private fun AllowlistRow(app: InstalledApp, allowed: Boolean, onToggle: (Boolean
             contentDescription = null,
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(18.dp))
         )
         Spacer(modifier = Modifier.width(18.dp))
         Text(

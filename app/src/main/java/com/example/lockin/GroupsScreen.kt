@@ -124,7 +124,7 @@ private fun CreateGroupPanel(friends: List<Friend>, onCancel: () -> Unit, onCrea
             onValueChange = { name = it },
             label = { Text("Group name") },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -155,7 +155,7 @@ private fun CreateGroupPanel(friends: List<Friend>, onCancel: () -> Unit, onCrea
             onValueChange = { threshold = it.filter(Char::isDigit) },
             label = { Text("Approvals needed to mute a break") },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(22.dp),
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))

@@ -392,7 +392,7 @@ private fun HomeScreen(
         Spacer(modifier = Modifier.height(12.dp))
         Box(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(30.dp))
                 .padding(horizontal = 24.dp, vertical = 14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -405,7 +405,7 @@ private fun HomeScreen(
                             contentDescription = null,
                             modifier = Modifier
                                 .size(28.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(14.dp))
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                     }
@@ -432,7 +432,7 @@ private fun NotificationNudge(onEnable: () -> Unit, onDismiss: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(26.dp))
             .padding(start = 16.dp, top = 12.dp, end = 6.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -584,7 +584,7 @@ internal fun PressableButton(
         onClick = onClick,
         interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = Color.White),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(26.dp),
         contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
         modifier = Modifier.scale(scale)
     ) {
