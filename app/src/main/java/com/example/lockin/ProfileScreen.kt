@@ -63,6 +63,7 @@ fun ProfileScreen(
     var streak by remember { mutableStateOf<Int?>(null) }
     var threshold by remember { mutableStateOf<Int?>(null) }
     var achievements by remember { mutableStateOf<List<Achievement>?>(null) }
+    var sparkles by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(myUid) {
         if (myUid == null) return@LaunchedEffect
@@ -71,6 +72,7 @@ fun ProfileScreen(
             threshold = info.thresholdMinutes
         }
         fetchAchievements(myUid) { achievements = it }
+        fetchSparkles(myUid) { sparkles = it }
     }
 
     fun changeThreshold(delta: Int) {
@@ -118,6 +120,38 @@ fun ProfileScreen(
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
         )
+
+        // Sparkles balance — the Stage 6 currency (earned 1/min locked in,
+        // spent later in the Shop). Shown here so the balance is visible even
+        // before there's anywhere to spend it. Rendered once loaded to avoid a
+        // 0 → real-value flash on cold open.
+        val loadedSparkles = sparkles
+        if (loadedSparkles != null) {
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "✨", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "$loadedSparkles",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = if (loadedSparkles == 1L) "Sparkle" else "Sparkles",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
         Spacer(Modifier.height(28.dp))
 
         // Streak hero

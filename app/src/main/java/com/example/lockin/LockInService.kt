@@ -124,6 +124,8 @@ class LockInService : Service() {
             val endedAt = System.currentTimeMillis()
             val durationSeconds = (endedAt - sessionStartMillis) / 1000
             recordSessionToCloud(uid, sessionStartMillis, endedAt, breakCount)
+            // Sparkles currency: 1 per whole minute locked in (solo or group).
+            awardSparkles(uid, durationSeconds)
             // The friend-visible feed copy, stamped with the streak *including*
             // this just-finished session (which may not have hit Firestore yet).
             // The read runs on the Firestore SDK's own threads, not serviceScope
