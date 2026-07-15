@@ -48,6 +48,8 @@ class LockInService : Service() {
     private var sessionStartMillis = 0L
     private var ownerUid: String? = null
     private var groupId: String? = null
+    private var groupName: String? = null
+    private var displayName: String = "Someone"
     private var breakCount = 0
     private var wasInBreak = false
     private var alarmStartMillis = 0L
@@ -72,7 +74,11 @@ class LockInService : Service() {
         val session = loadSession(this)
         sessionStartMillis = session.startTimeMillis
         groupId = session.groupId
+        groupName = session.groupName
         ownerUid = Firebase.auth.currentUser?.uid
+        // Captured now, not in onDestroy: sign-out clears auth right after the
+        // session stops, so the display name would be gone by teardown.
+        displayName = Firebase.auth.currentUser?.displayName ?: "Someone"
         isScreenOn = getSystemService(PowerManager::class.java).isInteractive
         screenStateReceiver.register(this)
         watchMuteApprovals()
@@ -109,7 +115,21 @@ class LockInService : Service() {
 
         val uid = ownerUid
         if (uid != null && sessionStartMillis > 0) {
-            recordSessionToCloud(uid, sessionStartMillis, System.currentTimeMillis(), breakCount)
+            val endedAt = System.currentTimeMillis()
+            val durationSeconds = (endedAt - sessionStartMillis) / 1000
+            recordSessionToCloud(uid, sessionStartMillis, endedAt, breakCount)
+            // The friend-visible feed copy, stamped with the streak *including*
+            // this just-finished session (which may not have hit Firestore yet).
+            // The read runs on the Firestore SDK's own threads, not serviceScope
+            // (already cancelled), and the app process outlives the service, so
+            // the callback still fires; on failure it posts with streak 0 rather
+            // than dropping the feed event.
+            fetchStreakInfo(uid, sessionStartMillis, durationSeconds) { info ->
+                recordActivityToCloud(
+                    uid, displayName, sessionStartMillis, endedAt, breakCount,
+                    groupId, groupName, info.streak
+                )
+            }
         }
         val gid = groupId
         if (uid != null && gid != null) {

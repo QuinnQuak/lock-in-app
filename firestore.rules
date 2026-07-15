@@ -32,10 +32,31 @@ service cloud.firestore {
       allow read: if isSignedIn() && (request.auth.uid == uid || isFriendOf(uid));
       allow write: if isSignedIn() && request.auth.uid == uid;
 
-      // Session history isn't part of the transparency mechanic (that's
-      // a Stage 5 social-feed concern) -- stays strictly owner-only.
+      // Session history isn't part of the transparency mechanic -- it's the
+      // private source of truth for the owner's own stats, stays owner-only.
+      // The friend-visible feed is the separate activity stream below.
       match /sessions/{sessionId} {
         allow read, write: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      // Stage 5 social feed: one doc per finished lock-in, the events
+      // surfaced to friends. Reads open to friends via the same isFriendOf
+      // gate as the profile doc; only the owner ever writes their own.
+      match /activity/{eventId} {
+        allow read: if isSignedIn() && (request.auth.uid == uid || isFriendOf(uid));
+        allow write: if isSignedIn() && request.auth.uid == uid;
+
+        // Kudos: one doc per reactor, id == reactorUid. A friend may create
+        // or remove only their own kudos (never for someone else, never on
+        // their own post); owner and friends read the tally. Same rules-only
+        // multi-party pattern as friendRequests -- no Cloud Function.
+        match /kudos/{reactorUid} {
+          allow read: if isSignedIn() && (request.auth.uid == uid || isFriendOf(uid));
+          allow create: if isSignedIn() && request.auth.uid == reactorUid &&
+            reactorUid != uid && isFriendOf(uid) &&
+            request.resource.data.reactorUid == reactorUid;
+          allow delete: if isSignedIn() && request.auth.uid == reactorUid;
+        }
       }
 
       match /friends/{friendUid} {

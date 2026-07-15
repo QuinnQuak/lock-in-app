@@ -1,0 +1,261 @@
+package com.example.lockin
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
+
+@Composable
+fun ProfileScreen() {
+    val currentUser = Firebase.auth.currentUser
+    val myUid = currentUser?.uid
+    val myName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "You"
+
+    var streak by remember { mutableStateOf<Int?>(null) }
+    var threshold by remember { mutableStateOf<Int?>(null) }
+    var achievements by remember { mutableStateOf<List<Achievement>?>(null) }
+
+    LaunchedEffect(myUid) {
+        if (myUid == null) return@LaunchedEffect
+        fetchStreakInfo(myUid) { info ->
+            streak = info.streak
+            threshold = info.thresholdMinutes
+        }
+        fetchAchievements(myUid) { achievements = it }
+    }
+
+    fun changeThreshold(delta: Int) {
+        val uid = myUid ?: return
+        val current = threshold ?: return
+        val next = (current + delta).coerceIn(MIN_STREAK_MINUTES, MAX_STREAK_MINUTES)
+        if (next == current) return
+        threshold = next
+        setStreakMinMinutes(uid, next)
+        // Threshold changes which days qualify, so recompute streak *and* the
+        // streak-shaped achievements (Week Warrior / Flawless Week) against it.
+        fetchStreakInfo(uid) { info -> streak = info.streak }
+        fetchAchievements(uid) { achievements = it }
+    }
+
+    val loadedStreak = streak
+    val loadedThreshold = threshold
+    if (loadedStreak == null || loadedThreshold == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 2.dp,
+                modifier = Modifier.width(28.dp)
+            )
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = myName,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(28.dp))
+
+        // Streak hero
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
+                .padding(vertical = 28.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = if (loadedStreak > 0) "🔥 $loadedStreak" else "🌱",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = when (loadedStreak) {
+                        0 -> "No streak yet — lock in today to start one"
+                        1 -> "1 day streak"
+                        else -> "$loadedStreak day streak"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        // Streak goal (threshold) — customizable but friend-visible.
+        Text(
+            text = "Streak goal",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "A day counts at",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { changeThreshold(-5) }) {
+                    Text(
+                        text = "−",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    text = "$loadedThreshold min",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                IconButton(onClick = { changeThreshold(5) }) {
+                    Text(
+                        text = "+",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Lock in for at least this long to keep your streak alive. Your friends can see this goal — no secretly setting it to a minute.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        // Achievements — milestones derived on the fly from own sessions.
+        val loadedAchievements = achievements
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Achievements",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (loadedAchievements != null) {
+                Text(
+                    text = "${loadedAchievements.count { it.earned }} of ${loadedAchievements.size} earned",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        if (loadedAchievements == null) {
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 2.dp,
+                modifier = Modifier.width(24.dp)
+            )
+        } else {
+            loadedAchievements.chunked(2).forEach { rowItems ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    rowItems.forEach { a -> AchievementCell(a, Modifier.weight(1f)) }
+                    // Keep the last odd cell half-width instead of stretching it.
+                    if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.AchievementCell(a: Achievement, modifier: Modifier = Modifier) {
+    val bg =
+        if (a.earned) MaterialTheme.colorScheme.surfaceVariant
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .background(bg, RoundedCornerShape(18.dp))
+            .padding(vertical = 16.dp, horizontal = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Top
+    ) {
+        Text(
+            text = a.emoji,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.alpha(if (a.earned) 1f else 0.35f)
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = a.title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            color = if (a.earned) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = a.progress,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = if (a.earned) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}

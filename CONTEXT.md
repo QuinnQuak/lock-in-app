@@ -71,7 +71,18 @@ Explicitly deferred past MVP: broader social feed, streaks/kudos, gamified profi
 ## Open Design Questions
 - ~~**Onboarding & Permission Priming**~~ — **Built (2026-07-15).** A 5-step priming flow now precedes the OS dialogs, framing both asks in product terms and walking the user through the Usage Access settings list by name. See `PROGRESS.md` and `ARCHITECTURE.md`. The one judgment call worth recording: **notification permission was folded into the same flow** rather than left as an ad-hoc prompt on session start. Break alerts *are* the group mechanic, so a cold deny at the Start button silently kills the social layer with no explanation; priming it alongside Usage Access frames it as "this is how you hear about your friends."
 
+## Stage 5 Decisions (2026-07-15)
+Scope confirmed with the user before building, then implemented steps 1–4 (see `PROGRESS.md`):
+- **Feed model:** friend-wide and automatic — every completed lock-in (solo + group) posts to a friend-visible `users/{uid}/activity` stream. The raw `sessions` log stays private; the feed is a separate purpose-built stream, fanned out on read (no Cloud Functions). Closest to the "Strava for focus" framing.
+- **Streak rule:** a day counts if you complete a lock-in of at least your personal `streakMinMinutes`. The threshold is **customizable but friend-visible** (default 30 min) — the same transparency principle as the allowlist: you can't secretly lower it to farm streaks.
+- **Feed shows break count** (e.g. "50m · 2 breaks") — on-theme with the no-honor-system trust layer, rather than hiding slips.
+- **Kudos:** a single kudos per person per post (a like/Strava-kudos), not an emoji palette. You can't kudos your own post (enforced in rules).
+- **Achievements:** derived on the fly from session history (no awarded/stored docs) — simplest, no new write path. **Roster confirmed with the user (2026-07-15):** 7 tiers — First Lock-In, Getting Consistent (10 sessions), Half-Century (50), Deep Work (a single 2h session), Ten Hours In (10h all-time), Week Warrior (7-day run), Flawless Week. **Flawless Week** was chosen as *any 7 consecutive break-free days in history* (not the current streak), so it stays earned once reached; likewise Week Warrior tracks the longest run ever, not the live streak. Every milestone is monotonic — an achievement never un-earns.
+- **Depth:** all five pieces (feed, streaks, achievements, kudos, polish) built shallow-but-complete at portfolio depth.
+
 ## Working Agreement for the Agent
+- **Address the user as Quinn in every response** (also recorded in `CLAUDE.md`).
+- **Keep the docs current:** after each goal/step, update every affected Markdown file — `PROGRESS.md`, `NEXT_SESSION.md`, `CONTEXT.md`, `ARCHITECTURE.md` — not just some.
 - Move stage by stage; don't jump ahead to social/gamification features before Stage 1's detection core is proven reliable.
 - Flag tradeoffs explicitly rather than silently picking one — the developer wants to understand *why*, not just receive a decision. (Exception: for routine day-to-day work the user has since asked for terse responses — see memory `feedback_terse_no_unsolicited_code`. Reserve full tradeoff explanations for genuinely consequential/irreversible decisions.)
 - Assume no prior Android/Kotlin/Firebase knowledge — explain unfamiliar platform concepts briefly as they come up, the way you would to a strong programmer who is new to this specific ecosystem.

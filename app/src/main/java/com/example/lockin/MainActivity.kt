@@ -70,7 +70,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Auth, Onboarding, Home, Allowlist, Friends, Groups }
+private enum class Screen { Auth, Onboarding, Home, Allowlist, Friends, Groups, Feed, Profile }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
@@ -169,6 +169,8 @@ class MainActivity : ComponentActivity() {
                                         onOpenAllowlist = { subScreen = Screen.Allowlist },
                                         onOpenFriends = { subScreen = Screen.Friends },
                                         onOpenGroups = { subScreen = Screen.Groups },
+                                        onOpenFeed = { subScreen = Screen.Feed },
+                                        onOpenProfile = { subScreen = Screen.Profile },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop
                                             // monitoring before the account goes away.
@@ -181,6 +183,8 @@ class MainActivity : ComponentActivity() {
                                     Screen.Allowlist -> AllowlistScreen()
                                     Screen.Friends -> FriendsScreen()
                                     Screen.Groups -> GroupsScreen()
+                                    Screen.Feed -> FeedScreen()
+                                    Screen.Profile -> ProfileScreen()
                                 }
                             }
                         }
@@ -207,7 +211,8 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
-    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends || screen == Screen.Groups
+    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends ||
+        screen == Screen.Groups || screen == Screen.Feed || screen == Screen.Profile
     TopAppBar(
         title = {
             Text(
@@ -215,6 +220,8 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
                     Screen.Allowlist -> "Allowlist"
                     Screen.Friends -> "Friends"
                     Screen.Groups -> "Groups"
+                    Screen.Feed -> "Feed"
+                    Screen.Profile -> "Profile"
                     else -> "Lock-In"
                 },
                 fontWeight = FontWeight.SemiBold
@@ -232,7 +239,7 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onOpenGroups: () -> Unit, onSignOut: () -> Unit) {
+private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onOpenGroups: () -> Unit, onOpenFeed: () -> Unit, onOpenProfile: () -> Unit, onSignOut: () -> Unit) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -281,6 +288,12 @@ private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, o
             }
         }
         Spacer(modifier = Modifier.height(24.dp))
+        TextButton(onClick = onOpenFeed) {
+            Text("Feed")
+        }
+        TextButton(onClick = onOpenProfile) {
+            Text("Profile")
+        }
         TextButton(onClick = onOpenAllowlist) {
             Text("Manage Allowlist")
         }
@@ -481,7 +494,7 @@ private fun SessionControls() {
             // are silently missing -- degraded, but the session still runs.
             PressableButton(
                 onClick = {
-                    startLockInSession(context, selectedGroupId)
+                    startLockInSession(context, selectedGroupId, groups.find { it.id == selectedGroupId }?.name)
                     session = loadSession(context)
                 },
                 containerColor = MaterialTheme.colorScheme.primary,

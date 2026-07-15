@@ -23,6 +23,11 @@ fun createUserProfile(uid: String, displayName: String, email: String) {
         "displayName" to displayName,
         "email" to email,
         "createdAt" to FieldValue.serverTimestamp(),
+        // Per-user streak threshold: a day only counts toward a streak if a
+        // lock-in reaches this many minutes. Customizable but friend-visible
+        // (this doc is friend-readable), mirroring the allowlist transparency
+        // rule -- you can't secretly lower it to farm streaks.
+        "streakMinMinutes" to 30,
     )
     db.collection("users").document(uid)
         .set(profile)
