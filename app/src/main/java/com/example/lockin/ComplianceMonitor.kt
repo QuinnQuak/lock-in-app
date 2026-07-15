@@ -23,6 +23,14 @@ object LockInMonitor {
     private val _breakId = MutableStateFlow(0L)
     val breakId: StateFlow<Long> = _breakId.asStateFlow()
 
+    // True while the alarm is actually making noise. Distinct from BREAK:
+    // in a group the alarm outlives the break, so a breaker who returns to a
+    // compliant app is COMPLIANT again yet the alarm still blares. The Home
+    // header reads this to show "ALARM SOUNDING" instead of a misleading
+    // green "LOCK-IN ACTIVE". The Service publishes it each tick.
+    private val _alarmSounding = MutableStateFlow(false)
+    val alarmSounding: StateFlow<Boolean> = _alarmSounding.asStateFlow()
+
     fun update(status: ComplianceStatus) {
         _complianceState.value = status
     }
@@ -31,9 +39,14 @@ object LockInMonitor {
         _breakId.value = id
     }
 
+    fun setAlarmSounding(sounding: Boolean) {
+        _alarmSounding.value = sounding
+    }
+
     fun reset() {
         _complianceState.value = initialStatus
         _breakId.value = 0L
+        _alarmSounding.value = false
     }
 }
 

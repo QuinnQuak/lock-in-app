@@ -206,6 +206,11 @@ class LockInService : Service() {
                     }
                 }
 
+                // Surface the settled alarm state so the Home header can show
+                // "ALARM SOUNDING" even when the breaker is technically
+                // compliant again (group sticky alarm).
+                LockInMonitor.setAlarmSounding(alarmActive)
+
                 delay(1000)
             }
         }

@@ -348,10 +348,19 @@ private fun SessionControls() {
         if (session.isActive) {
             val complianceStatus by LockInMonitor.complianceState.collectAsState()
             val isBreak = complianceStatus.state == ComplianceState.BREAK
-            val statusColor = if (isBreak) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
+            // The alarm can outlive the break in a group session: a breaker who
+            // returns to a compliant app is COMPLIANT again while the alarm still
+            // blares. Show that alert state instead of a misleading green header.
+            val isAlarmSounding by LockInMonitor.alarmSounding.collectAsState()
+            val isAlert = isBreak || isAlarmSounding
+            val statusColor = if (isAlert) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
 
             Text(
-                text = if (isBreak) "BREAK DETECTED" else "LOCK-IN ACTIVE",
+                text = when {
+                    isBreak -> "BREAK DETECTED"
+                    isAlarmSounding -> "ALARM SOUNDING"
+                    else -> "LOCK-IN ACTIVE"
+                },
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = statusColor
