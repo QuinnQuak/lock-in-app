@@ -84,7 +84,7 @@ import kotlinx.coroutines.delay
 // Ordered for the screen-transition slide: the five bottom-bar tabs run
 // left-to-right in bar order, with Allowlist last since it slides in from the
 // right of Profile (its parent).
-private enum class Screen { Auth, Onboarding, Home, Feed, Friends, Groups, Profile, Allowlist }
+private enum class Screen { Auth, Onboarding, Home, Feed, Friends, Groups, Profile, Allowlist, GroupDetail }
 
 private val BottomTabs = listOf(Screen.Home, Screen.Feed, Screen.Friends, Screen.Groups, Screen.Profile)
 
@@ -153,9 +153,13 @@ class MainActivity : ComponentActivity() {
                     onDispose { regs.forEach { it.remove() } }
                 }
 
-                // The selected bottom-bar tab (or Allowlist, nested under
-                // Profile). Auth/Onboarding gate in ahead of it below.
+                // The selected bottom-bar tab (or a nested screen: Allowlist
+                // under Profile, GroupDetail under Groups). Auth/Onboarding gate
+                // in ahead of it below.
                 var current by remember { mutableStateOf(Screen.Home) }
+
+                // The group whose room (GroupDetail) is open, if any.
+                var selectedGroup by remember { mutableStateOf<LockInGroup?>(null) }
 
                 // Dismissing the Home notification nudge hides it for this
                 // session only; hoisted here (not inside HomeScreen) so a tab
@@ -178,6 +182,9 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = currentScreen == Screen.Allowlist) {
                     current = Screen.Profile
                 }
+                BackHandler(enabled = currentScreen == Screen.GroupDetail) {
+                    current = Screen.Groups
+                }
                 BackHandler(enabled = currentScreen in BottomTabs && currentScreen != Screen.Home) {
                     current = Screen.Home
                 }
@@ -186,9 +193,15 @@ class MainActivity : ComponentActivity() {
                     topBar = {
                         LockInTopBar(
                             screen = currentScreen,
-                            // Allowlist is the only back-navigable screen; it
-                            // returns to its parent tab, Profile.
-                            onBack = { current = Screen.Profile }
+                            // GroupDetail shows the group's name; other screens
+                            // derive their own title from the screen.
+                            groupName = selectedGroup?.name,
+                            // The two nested screens return to their parent tab:
+                            // Allowlist -> Profile, GroupDetail -> Groups.
+                            onBack = {
+                                current = if (currentScreen == Screen.GroupDetail) Screen.Groups
+                                else Screen.Profile
+                            }
                         )
                     },
                     bottomBar = {
@@ -236,11 +249,25 @@ class MainActivity : ComponentActivity() {
                                         onOpenNotificationSettings = {
                                             startActivity(appNotificationSettingsIntent(this@MainActivity))
                                         },
-                                        onDismissNudge = { notificationNudgeDismissed = true }
+                                        onDismissNudge = { notificationNudgeDismissed = true },
+                                        // Deep-link from the Home "group lock-in"
+                                        // hint into that group's room.
+                                        onOpenGroup = { gid ->
+                                            myGroups.find { it.id == gid }?.let {
+                                                selectedGroup = it
+                                                current = Screen.GroupDetail
+                                            }
+                                        }
                                     )
                                     Screen.Feed -> FeedScreen()
                                     Screen.Friends -> FriendsScreen()
-                                    Screen.Groups -> GroupsScreen()
+                                    Screen.Groups -> GroupsScreen(
+                                        onOpenGroup = { group ->
+                                            selectedGroup = group
+                                            current = Screen.GroupDetail
+                                        }
+                                    )
+                                    Screen.GroupDetail -> selectedGroup?.let { GroupDetailScreen(group = it) }
                                     Screen.Profile -> ProfileScreen(
                                         onOpenAllowlist = { current = Screen.Allowlist },
                                         onSignOut = {
@@ -282,7 +309,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
+private fun LockInTopBar(screen: Screen, groupName: String?, onBack: () -> Unit) {
     TopAppBar(
         title = {
             Text(
@@ -290,6 +317,7 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
                     Screen.Allowlist -> "Allowlist"
                     Screen.Friends -> "Friends"
                     Screen.Groups -> "Groups"
+                    Screen.GroupDetail -> groupName ?: "Group"
                     Screen.Feed -> "Feed"
                     Screen.Profile -> "Profile"
                     else -> "Lock-In"
@@ -299,8 +327,8 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
         },
         navigationIcon = {
             // Tabs are reachable via the bottom bar; only the nested Allowlist
-            // screen needs a back affordance.
-            if (screen == Screen.Allowlist) {
+            // and GroupDetail screens need a back affordance.
+            if (screen == Screen.Allowlist || screen == Screen.GroupDetail) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
@@ -337,6 +365,7 @@ private fun HomeScreen(
     showNotificationNudge: Boolean,
     onOpenNotificationSettings: () -> Unit,
     onDismissNudge: () -> Unit,
+    onOpenGroup: (String) -> Unit,
 ) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
@@ -353,7 +382,7 @@ private fun HomeScreen(
             NotificationNudge(onEnable = onOpenNotificationSettings, onDismiss = onDismissNudge)
             Spacer(modifier = Modifier.height(24.dp))
         }
-        SessionControls()
+        SessionControls(onOpenGroup = onOpenGroup)
         Spacer(modifier = Modifier.height(36.dp))
         Text(
             text = "CURRENTLY OPEN",
@@ -450,37 +479,18 @@ private fun NotificationNudge(onEnable: () -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun SessionControls() {
+private fun SessionControls(onOpenGroup: (String) -> Unit) {
     val context = LocalContext.current
     var session by remember { mutableStateOf(loadSession(context)) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
-    var groups by remember { mutableStateOf<List<LockInGroup>>(emptyList()) }
-    var selectedGroupId by remember { mutableStateOf<String?>(null) }
-    var memberStatuses by remember { mutableStateOf<List<MemberStatus>>(emptyList()) }
-    var muteRequests by remember { mutableStateOf<List<MuteRequest>>(emptyList()) }
-    var muteApprovals by remember { mutableStateOf<List<MuteApproval>>(emptyList()) }
-
-    val myUid = Firebase.auth.currentUser?.uid
-    DisposableEffect(myUid) {
-        val reg = myUid?.let { listenMyGroups(it) { g -> groups = g } }
-        onDispose { reg?.remove() }
-    }
-    DisposableEffect(session.groupId) {
-        val gid = session.groupId
-        val regs = if (gid != null) {
-            listOf(
-                listenGroupLiveStatus(gid) { memberStatuses = it },
-                listenMuteRequests(gid) { muteRequests = it },
-                listenMuteApprovals(gid) { muteApprovals = it },
-            )
-        } else emptyList()
-        onDispose { regs.forEach { it.remove() } }
-    }
 
     LaunchedEffect(session.isActive, session.startTimeMillis) {
         while (session.isActive) {
             elapsedSeconds = (System.currentTimeMillis() - session.startTimeMillis) / 1000
             delay(1000)
+            // Reflect an auto-stop (a shared round ended) or a stop taken from
+            // the group room, so Home doesn't show a phantom running session.
+            session = loadSession(context)
         }
     }
 
@@ -523,127 +533,28 @@ private fun SessionControls() {
                 text = "Stop Lock-In"
             )
 
-            val groupId = session.groupId
-            if (groupId != null) {
-                // How many *other* members must approve, per the room's setting.
-                val threshold = (groups.find { it.id == groupId }?.muteApprovalCount ?: 1)
-                    .coerceAtLeast(1)
-                // An approval only counts for the break it was cast in, and a
-                // breaker's own approval never counts -- mirrors the service
-                // and the security rules.
-                fun approvalsFor(breakerUid: String, breakId: Long) = muteApprovals.count {
-                    it.breakerUid == breakerUid && it.breakId == breakId && it.approverUid != breakerUid
-                }
-
-                // Keyed off breakId, not live compliance: in a group the alarm
-                // outlives the break, and the breaker reaches this screen by
-                // opening Lock-In (which counts as compliant).
-                val myBreakId by LockInMonitor.breakId.collectAsState()
-                if (myUid != null && myBreakId > 0L) {
-                    val myRequest = muteRequests.find { it.breakerUid == myUid && it.breakId == myBreakId }
-                    val approvals = approvalsFor(myUid, myBreakId)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    if (myRequest == null) {
-                        TextButton(
-                            onClick = {
-                                requestMute(
-                                    groupId,
-                                    myUid,
-                                    Firebase.auth.currentUser?.displayName ?: "Someone",
-                                    myBreakId
-                                )
-                            }
-                        ) {
-                            Text("Ask the group to mute my alarm")
-                        }
-                    } else {
-                        Text(
-                            text = if (approvals >= threshold) {
-                                "Alarm muted by the group"
-                            } else {
-                                "Waiting on the group — $approvals/$threshold approved"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                if (memberStatuses.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text(
-                        text = "GROUP STATUS",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    memberStatuses.forEach { member ->
-                        val dotColor = if (member.state == ComplianceState.BREAK) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.secondary
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .background(dotColor, RoundedCornerShape(50))
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(member.displayName, style = MaterialTheme.typography.bodyMedium)
-
-                            // A pending request, not a red dot, is what asks for
-                            // your approval -- the breaker's alarm keeps
-                            // sounding even once they're compliant again.
-                            val request = muteRequests.find { it.breakerUid == member.uid }
-                            if (member.uid != myUid && myUid != null && request != null) {
-                                val approvals = approvalsFor(member.uid, request.breakId)
-                                val alreadyApproved = muteApprovals.any {
-                                    it.breakerUid == member.uid &&
-                                        it.approverUid == myUid &&
-                                        it.breakId == request.breakId
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "$approvals/$threshold",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (!alreadyApproved && approvals < threshold) {
-                                    TextButton(
-                                        onClick = {
-                                            approveMute(groupId, member.uid, myUid, request.breakId)
-                                        }
-                                    ) {
-                                        Text("Approve mute")
-                                    }
-                                }
-                            }
-                        }
-                    }
+            // Group lock-ins now live in the group room. From Home you see only
+            // your own status + Stop, plus a shortcut into the room to see the
+            // group and manage a mute.
+            val gid = session.groupId
+            if (gid != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Group lock-in" + (session.groupName?.let { " · $it" } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { onOpenGroup(gid) }) {
+                    Text("Open group room")
                 }
             }
         } else {
-            if (groups.isNotEmpty()) {
-                Text(
-                    text = "Session: ${groups.find { it.id == selectedGroupId }?.name ?: "Solo"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable {
-                        val ids = listOf<String?>(null) + groups.map { it.id }
-                        val nextIndex = (ids.indexOf(selectedGroupId) + 1) % ids.size
-                        selectedGroupId = ids[nextIndex]
-                    }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-            // Notifications are primed during onboarding now, so starting a
-            // session no longer detours through a permission dialog. If the
-            // user declined there, break alerts and the service notification
-            // are silently missing -- degraded, but the session still runs.
+            // Home starts a solo lock-in only; group lock-ins are joined from
+            // the group room. Notifications were primed during onboarding, so
+            // starting no longer detours through a permission dialog.
             PressableButton(
                 onClick = {
-                    startLockInSession(context, selectedGroupId, groups.find { it.id == selectedGroupId }?.name)
+                    startLockInSession(context)
                     session = loadSession(context)
                 },
                 containerColor = MaterialTheme.colorScheme.primary,

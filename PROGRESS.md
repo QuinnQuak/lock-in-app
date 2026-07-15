@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. Update this file after each meaningful milestone.
 
-## Status: Stages 0–5 complete and verified, plus the onboarding/permission-priming deliverable
+## Status: Stages 0–5 complete + onboarding; group lock-ins reworked into Discord-style servers + live lobbies
 
 Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -71,6 +71,34 @@ Key design call: raw `users/{uid}/sessions` stays **private**; the feed reads a 
 - ✅ **In-app notification nudge (verified on emulator).** If notifications are off on API 33+ (declined during onboarding or revoked later), Home shows a dismissible green banner above the session controls — "Notifications are off · You won't hear when your group breaks" with a "Turn on alerts" action. **Tapping it deep-links to the app's own notification settings** (`appNotificationSettingsIntent`, `ACTION_APP_NOTIFICATION_SETTINGS`) rather than re-firing the runtime dialog — Android silently suppresses the `POST_NOTIFICATIONS` dialog after a denial, so re-launching it no-ops, whereas the settings screen always works. Mirrors the Usage Access pattern: `MainActivity` re-checks the grant in `onResume` (new `notificationsGranted` state), so returning with alerts on makes the banner vanish on its own. The X dismisses it for the session only — the dismiss flag is hoisted to the composition root, so a tab switch doesn't bring it back but an app relaunch does. Only shows on API 33+ (below that notifications need no runtime grant). Verified end-to-end: revoked → banner shows; "Turn on alerts" → landed on Lock-In's notification settings; enabled + Back → banner gone (onResume re-check); dismiss → hidden, survived Feed→Home; relaunch → banner returned. No debug logging added.
 - ✅ **Visual redesign (verified on emulator).** At the user's request (2026-07-15) the app moved off the original lavender/sage/coral pastels to a **warm/energetic palette** (amber `#F57C1F` primary, green `#2BB673` secondary, warm-cream `#FBF7F2` canvas, red `#E8455F` alert; light + dark) and off the Home-screen `TextButton` list to a **bottom `NavigationBar`** (Home · Feed · Friends · Groups · Profile). Allowlist + Sign Out are now a Settings block under Profile; `material-icons-extended` added for the tab icons. **Bug found and fixed during review:** there was no `BackHandler`, so hardware/gesture Back finished the activity from *every* screen (a bottom-tab app should send Back from a secondary tab → Home, and from nested Allowlist → Profile). Added two conditional `BackHandler`s; verified live: Feed→Back→Home, Profile→Allowlist→Back→Profile, Home→Back→exit. Palette + nav render verified across Home/Profile/Allowlist/Feed. No debug logging added.
 
+### Group Lobbies Rework ✅ (2026-07-15) — supersedes the Stage-4 "passive group"
+Reworked group lock-ins from a passive roster into **Discord-style servers + live lobbies** (decided
+with the user over two clarifying rounds; see `CONTEXT.md`). A group is now a persistent server with
+**group chat**; a **lobby** is an ephemeral live room launched inside it, **multiple at once**, each
+either **Concurrent** (own clocks) or **Shared** (one synced round, auto-ends together). All live
+group-session UI moved off Home into the group room; Home is solo-only + an "Open group room" link.
+
+New: `ChatStore.kt`, `LobbyStore.kt`, `GroupDetailScreen.kt`; `Screen.GroupDetail` under Groups.
+Data model: `groups/{id}/messages` + `groups/{id}/lobbies`, and a `lobbyId` field on
+liveStatus/muteRequests/muteApprovals (presence via the tag, not a subcollection — see
+`ARCHITECTURE.md`). Rules add `messages` (member read; author-only create; immutable) and `lobbies`
+(member read/write). Built and verified in four steps:
+
+- **Step 1 — room + chat.** Verified on the emulator with two accounts (`mutebreaker`/`feedtester`
+  in a new `Chat Test` group): a UI-sent message and a friend's REST-pushed message both render live;
+  rules confirmed via REST (member read/write 200, spoofed `senderUid` 403, non-member read 403).
+- **Step 2 — lobbies (Concurrent) + relocated UI.** Host opens a lobby (auto-joins); a second member
+  joins (live dots filtered by `lobbyId`); break → sticky alarm (`dumpsys audio` shows
+  `MediaPlayer USAGE_ALARM state:started`) → "Ask the group to mute" → "Waiting 0/1" → feedtester
+  approves over REST → **alarm silenced in ~15s** (well under the cap, so it was the approval, not the
+  2-min cap — which *also* fired in an earlier pass, runtime-verifying it for the first time). Home
+  showed only "ALARM SOUNDING" + Stop + the working "Open group room" deep-link; solo start unaffected.
+- **Step 3 — Shared mode.** Create panel with a Concurrent/Shared toggle + duration stepper; a joined
+  shared round showed a live "Ends in m:ss" countdown and **auto-stopped for the member at
+  `endsAtMillis`** (session self-terminated, liveStatus cleared, room showed "Round over").
+- **Step 4 — cleanup.** Dead/ended lobbies are hidden and best-effort `closeLobby`'d once; verified
+  the leftover "Round over" lobby vanished from the room and its doc was deleted server-side (REST).
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode defeats detection.
@@ -81,7 +109,10 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 - `currentForegroundApp()`'s 1-hour lookback window is a stopgap, not the technically correct fix.
 - **Pressing "Stop Lock-In" silences a sticky alarm**, since the service tears down with it. So the alarm is now hard to silence *within* a session, but ending the session is still a free escape hatch. Natural Stage 6 (Anti-Cheat Hardening) target.
 
+## Design Redecision (2026-07-15) — not yet built
+The warm amber/green palette (Stage 5 step 6, committed `3fcd7b5`) has already been **superseded by a new decision**, same day: a cute, bold, character-driven direction — "Bubblegum" pink/orange palette + a light/dark + multi-theme picker, Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories unlocked via achievements (trophy case) and a new passively-earned Sparkles currency (Shop). Full spec in `CONTEXT.md`'s Design Direction. This is now its own build stage (see below) — nothing here is implemented yet, and `ARCHITECTURE.md`'s "Visual Design (implemented)" section still describes the live amber/green build until it is.
+
 ## What's Next
-1. **Stage 5 is complete.** All three step-6 parts done and verified. Next up is **Stage 6 — Anti-Cheat Hardening**: the adversarial pass on Stage 1's detection (force-close leaving a phantom session, airplane mode, revoking permissions mid-session, and the "Stop Lock-In silences a sticky alarm" escape hatch).
-2. Two Stage-4 loose ends worth folding into Stage 6: the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
+1. **Stage 5 and the group-lobby rework are complete.** The Staged Build Plan gained a new **Stage 6 — Cute Redesign & Mascot Economy** (see above), pushing the adversarial pass to **Stage 7 — Anti-Cheat Hardening** (force-close leaving a phantom session, airplane mode, revoking permissions mid-session, and the "Stop Lock-In silences a sticky alarm" escape hatch) and portfolio packaging to **Stage 8**. The 2-min alarm cap and a timed session auto-stop are now both runtime-verified (via the sticky-alarm and shared-round tests), closing two Stage-4 loose ends.
+2. Two loose ends worth folding into Stage 7 (Anti-Cheat Hardening): the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
 3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`; the notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) committed as `1de6fa3`.

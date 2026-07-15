@@ -49,6 +49,9 @@ class LockInService : Service() {
     private var ownerUid: String? = null
     private var groupId: String? = null
     private var groupName: String? = null
+    private var lobbyId: String? = null
+    // SHARED-mode synced round end; 0 = open-ended (solo or CONCURRENT lobby).
+    private var endsAtMillis = 0L
     private var displayName: String = "Someone"
     private var breakCount = 0
     private var wasInBreak = false
@@ -75,10 +78,13 @@ class LockInService : Service() {
         sessionStartMillis = session.startTimeMillis
         groupId = session.groupId
         groupName = session.groupName
+        lobbyId = session.lobbyId
+        endsAtMillis = session.endsAtMillis
         ownerUid = Firebase.auth.currentUser?.uid
         // Captured now, not in onDestroy: sign-out clears auth right after the
-        // session stops, so the display name would be gone by teardown.
-        displayName = Firebase.auth.currentUser?.displayName ?: "Someone"
+        // session stops, so the display name would be gone by teardown. Guard on
+        // isNotBlank since an empty (not null) name slips past a plain `?:`.
+        displayName = Firebase.auth.currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Someone"
         isScreenOn = getSystemService(PowerManager::class.java).isInteractive
         screenStateReceiver.register(this)
         watchMuteApprovals()
@@ -141,6 +147,14 @@ class LockInService : Service() {
     private fun startMonitoring() {
         serviceScope.launch {
             while (isActive) {
+                // SHARED lobby: the synced round ends for everyone at endsAtMillis.
+                // Tear down our own session (records history, clears liveStatus)
+                // and mark the prefs inactive so Home/room reflect it within ~1s.
+                if (endsAtMillis > 0 && System.currentTimeMillis() >= endsAtMillis) {
+                    stopLockInSession(this@LockInService)
+                    return@launch
+                }
+
                 val foregroundApp = if (isScreenOn) currentForegroundApp(this@LockInService) else null
                 val allowlist = loadAllowlist(this@LockInService)
                 val status = evaluateCompliance(packageName, isScreenOn, foregroundApp, allowlist)
@@ -149,8 +163,8 @@ class LockInService : Service() {
                 val gid = groupId
                 val uid = ownerUid
                 if (gid != null && uid != null) {
-                    val displayName = Firebase.auth.currentUser?.displayName ?: "Someone"
-                    pushLiveStatus(gid, uid, displayName, status)
+                    val displayName = Firebase.auth.currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Someone"
+                    pushLiveStatus(gid, uid, displayName, status, lobbyId)
                 }
 
                 val inBreak = status.state == ComplianceState.BREAK

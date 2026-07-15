@@ -14,6 +14,16 @@ Students and young professionals. The primary growth/retention mechanic is **pee
 ## Core Mechanic: The "Lock-In"
 A lock-in is an auto-detected, tamper-resistant focus session, either solo or in a group.
 
+**Group model — decided 2026-07-15 (supersedes the earlier "passive group"):** a group is a
+persistent, Discord-like **"server"** — a standing roster (owner invites friends) with its own
+**group chat**. You don't lock in "as a group" implicitly; instead a member opens an ephemeral
+**lobby** *inside* the group — a live room others hop into as they arrive. **Multiple lobbies can run
+at once** (like several voice channels). Each lobby picks a **mode**: **Concurrent** (everyone locked
+in together, each on their own open-ended clock) or **Shared** (one synced round with a set length —
+everyone starts now and ends together, a "match"). Solo lock-ins stay on Home; all live group-session
+UI (member presence, the mute-approval flow) lives in the group room. Came out of explicit clarifying
+rounds with the user, consistent with prior design collaboration.
+
 **Compliance rules during an active lock-in:**
 - Screen off → compliant
 - Screen on + foreground app is in the user's **personal allowlist** → compliant
@@ -47,9 +57,31 @@ Surfaced during design review and consciously deferred rather than accidentally 
 3. iOS is a possible future platform post-validation. The social/backend layer should be architected to not be Android-locked (Firebase backend is platform-agnostic) so iOS can be added as a second native client later without a backend rebuild.
 
 ## Design Direction
-Gamified but focused — clean structure (**Notion**) with an encouraging, non-childish tone. Avoid childish or overly "mascot-heavy" gamification; lean toward clean typography and subtle reward/streak mechanics rather than loud badges or cartoonish UI.
+**Cute, bold, and character-driven.** Chunky rounded typography, a candy pink/orange palette, and a reactive mascot companion — playful and personality-forward, not clean/minimal.
 
-- **Decided (2026-07-15):** the palette moved from the original soft lavender/sage/coral pastels to a **warm, energetic scheme** (amber primary, green momentum, warm-cream canvas, red alert) — the "lock in and get things done" energy over "calm and soothing." Navigation moved to a **bottom `NavigationBar`** (Home · Feed · Friends · Groups · Profile), with Allowlist + Sign Out nested under Profile. (Implemented palette/typography/nav specifics are in `ARCHITECTURE.md`.)
+**Superseded (2026-07-15):** the earlier direction ("clean structure inspired by Notion... avoid childish or mascot-heavy gamification... lean toward clean typography over loud badges or cartoonish UI") is retired at the user's explicit request, not softened — mascot-heavy and cartoonish *is* the new direction now, not a tension to manage against a professional baseline. This also supersedes the amber/green "warm, energetic" palette decided earlier the same day (2026-07-15) — that one shipped and is documented as implemented in `ARCHITECTURE.md`; this redesign is decided but **not yet built** (queued as the new Stage 6 below).
+
+- **Palette — "Bubblegum" (decided 2026-07-15):** pink is the primary brand color, orange secondary. Rethought as one cohesive four-color set rather than reusing the old functional colors as-is — streak/momentum uses **orange** (ties to the existing 🔥 streak emoji) instead of green, and break/alert uses a **cherry red** distinct enough in hue from primary pink not to be confused with a normal button.
+
+  | Role | Light | Dark |
+  |---|---|---|
+  | Primary (Pink) | `#FF4F8B` | `#FF6FA3` |
+  | Secondary (Orange) | `#FF9142` | `#FFA766` |
+  | Alert/Break (Cherry Red) | `#E63950` | `#FF5C72` |
+  | Background | `#FFF3F6` (blush) | `#241620` (deep plum) |
+  | Surface/cards | `#FFFAFB` | `#331D2C` |
+
+- **Theme picker (new, decided 2026-07-15):** beyond light/dark, a curated set of accent skins (not a fully open picker, to keep the system cohesive and avoid an unbounded accessibility/QA surface) — **Bubblegum** (default, pink primary/orange secondary), **Peach** (orange primary/pink secondary, swapped emphasis), **Berry** (deeper magenta-pink primary/coral secondary), **Sunset** (red-orange forward, hotter/punchier). Each has its own light + dark pair. User-selectable, likely from Profile.
+
+- **Typography (decided 2026-07-15):** replaces Quicksand. **Fredoka** (weights 500–700) for headers, hero numbers, buttons, and nav labels — bold, chunky, high-personality. **Nunito** (weights 400–700) for body text, chat, and feed/list rows, where Fredoka's weight would hurt legibility at density. Both Google Fonts, OFL-licensed, variable fonts (same licensing shape as the outgoing Quicksand). Corner radii bumped up app-wide to match the rounder letterforms.
+
+- **Mascot — "blob buddy" (new, decided 2026-07-15):** a reactive companion character, not just a static profile icon. Simple round/teardrop blob, big expressive eyes, tiny stub limbs; recolors to match the user's active theme. Reacts to app state: idle/breathing loop while compliant, a happy bounce + sparkle on a completed lock-in, a droop-and-tears animation on a break, sleeping with "zzz" when there's no active session. Appears **everywhere** — Home hero, Profile, session status views, loading states — not scoped to one screen.
+
+- **Mascot customization & the "Sparkles" economy (new, decided 2026-07-15):** the mascot supports equippable accessories (hats, glasses, etc.), unlocked two ways:
+  - **Trophy case** — one signature accessory per existing achievement tier (7 total, see Stage 5 Decisions below), auto-granted on earning the achievement, never purchasable. Reuses the already-built achievement system instead of inventing new unlock logic.
+  - **Shop** — a broader, lower-stakes set of cosmetics bought with **Sparkles**, a new currency earned passively at **1 Sparkle per minute locked in** (solo or group). Chosen over a flat per-session award or a streak bonus because it ties the currency directly to the core mechanic (time actually spent locked in) rather than a separate economy that needs its own balancing.
+
+This is large enough to get its own line in the Staged Build Plan below rather than folding silently into "polish" — see the new Stage 6.
 
 ## MVP Feature Scope (in priority order)
 1. **Group lock-in sessions** — create/join, live session state, break detection triggers alarm + group alert
@@ -67,8 +99,9 @@ Explicitly deferred past MVP: broader social feed, streaks/kudos, gamified profi
 - **Stage 3 — Friends & Visible Allowlists:** Friend request system; allowlists become visible to friends.
 - **Stage 4 — Group Lock-Ins:** Create/join group sessions, sync session state in real time via Firestore, alarm (local) + break alert (group) on a break.
 - **Stage 5 — Social Feed & Gamification:** Post-session achievements, streaks, kudos/reactions, and a full visual polish pass (the warm/energetic redesign — see Design Direction).
-- **Stage 6 — Anti-Cheat Hardening:** Adversarial pass on Stage 1's detection logic — force-close, disabling battery optimization exceptions, airplane mode, etc.
-- **Stage 7 — Polish & Portfolio Packaging:** Onboarding flow, README, demo video/screenshots for portfolio presentation.
+- **Stage 6 — Cute Redesign & Mascot Economy:** Full visual redesign (Bubblegum pink/orange palette + theme picker, Fredoka/Nunito typography) and a reactive mascot companion with equippable accessories, unlocked via the existing achievements (trophy case) and a new passively-earned Sparkles currency (Shop). Full decided spec is in Design Direction above; not yet implemented.
+- **Stage 7 — Anti-Cheat Hardening:** Adversarial pass on Stage 1's detection logic — force-close, disabling battery optimization exceptions, airplane mode, etc.
+- **Stage 8 — Polish & Portfolio Packaging:** Onboarding flow, README, demo video/screenshots for portfolio presentation.
 
 ## Open Design Questions
 - ~~**Onboarding & Permission Priming**~~ — **Built (2026-07-15).** A 5-step priming flow now precedes the OS dialogs, framing both asks in product terms and walking the user through the Usage Access settings list by name. See `PROGRESS.md` and `ARCHITECTURE.md`. The one judgment call worth recording: **notification permission was folded into the same flow** rather than left as an ad-hoc prompt on session start. Break alerts *are* the group mechanic, so a cold deny at the Start button silently kills the social layer with no explanation; priming it alongside Usage Access frames it as "this is how you hear about your friends." **Backstopped in Stage 5 step 6 (2026-07-15):** if the user still declines (or later revokes), Home shows a dismissible nudge with a one-tap route to notification settings — a decline stays a real choice, but no longer a silent, unrecoverable one.

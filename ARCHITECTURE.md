@@ -13,7 +13,7 @@
 - Console: https://console.firebase.google.com/project/lockin-app-sg
 - Config: `app/google-services.json` — **gitignored**, re-download via console → Project settings → Your apps if missing.
 - CLI: portable Node + firebase-tools at `%LOCALAPPDATA%\node-portable\node-v20.18.2-win-x64\firebase.cmd` (logged in as the owner). No global Node/npm on this machine; the standalone `firebase.tools` instant binary is broken on this machine (firepit welcome.js JSON crash) — use the portable-Node install instead.
-- Dev/test accounts: `testuser@lockin.test` / `testuser2@lockin.test` (throwaway, trivial passwords, emulator-only). Stage 4's mute-approval test added `mutebreaker@lockin.test` / `muteapprover@lockin.test` (password `MuteTest2026`), plus a `Mute Test` group with `muteApprovalCount: 1` — the second member is driven purely over the Firestore REST API, which is how a two-party flow gets tested on a single emulator. (Note: `muteapprover`'s actual password is *not* `MuteTest2026` — a REST sign-in with it returns `INVALID_LOGIN_CREDENTIALS`; only `mutebreaker` was confirmed working.) Stage 5 step 3 added `feedtester@lockin.test` (password `FeedTest2026`, uid `zfuWQ5G0kCUeo3EtZbYRiIwaIiR2`, Auth display name "Feed Tester") — a **mutual friend of mutebreaker** with one posted 25-min activity doc, the durable fixture behind the friend-visible-feed and friend-kudos tests.
+- Dev/test accounts: `testuser@lockin.test` / `testuser2@lockin.test` (throwaway, trivial passwords, emulator-only). Stage 4's mute-approval test added `mutebreaker@lockin.test` / `muteapprover@lockin.test` (password `MuteTest2026`), plus a `Mute Test` group with `muteApprovalCount: 1` — the second member is driven purely over the Firestore REST API, which is how a two-party flow gets tested on a single emulator. (Note: `muteapprover`'s actual password is *not* `MuteTest2026` — a REST sign-in with it returns `INVALID_LOGIN_CREDENTIALS`; only `mutebreaker` was confirmed working.) Stage 5 step 3 added `feedtester@lockin.test` (password `FeedTest2026`, uid `zfuWQ5G0kCUeo3EtZbYRiIwaIiR2`, Auth display name "Feed Tester") — a **mutual friend of mutebreaker** with one posted 25-min activity doc, the durable fixture behind the friend-visible-feed and friend-kudos tests. The group-lobby rework added a **`Chat Test` group** (id `r1hs2AriiJhQYBTLVsvF`, members mutebreaker + feedtester, `muteApprovalCount: 1`) — the fixture for the chat, lobby-presence, and mute-approval tests (the second party driven over REST).
 
 ## Firestore Data Model
 ```
@@ -31,12 +31,21 @@ friendRequests/{fromUid}_{toUid}     — fromUid, toUid, fromDisplayName, create
                                         (doc existence alone = pending state; no status field)
 
 groups/{groupId}                     — name, ownerUid, memberUids (array), muteApprovalCount, createdAt
-  /liveStatus/{uid}                  — displayName, state (COMPLIANT|BREAK), updatedAt
-  /muteRequests/{breakerUid}         — displayName, breakId, createdAt
+                                        (a persistent Discord-like "server": membership + chat)
+  /messages/{messageId}              — senderUid, displayName, text, createdAt (group chat, immutable)
+  /lobbies/{lobbyId}                 — hostUid, name, mode (CONCURRENT|SHARED), startedAtMillis,
+                                        durationMinutes, endsAtMillis (ephemeral live rooms; many at once)
+  /liveStatus/{uid}                  — displayName, state (COMPLIANT|BREAK), lobbyId, updatedAt
+  /muteRequests/{breakerUid}         — displayName, breakId, lobbyId, createdAt
                                         (doc existence alone = pending state, as with friendRequests)
   /muteApprovals/{breakerUid}_{approverUid}
-                                     — breakerUid, approverUid, breakId, createdAt
+                                     — breakerUid, approverUid, breakId, lobbyId, createdAt
 ```
+
+A **lobby** is an ephemeral live room inside a group; multiple can run at once, each with its own
+mode. Presence is **not** stored on the lobby doc — it's the `liveStatus` docs tagged with a
+`lobbyId` field (a user has exactly one active session → one liveStatus doc, so the tag alone scopes
+a member to a lobby). `muteApprovalCount` stays a group-level setting applied to all its lobbies.
 
 `breakId` is the millisecond of the COMPLIANT→BREAK transition it belongs to. An approval only
 counts against a matching `breakId`, so leftover docs from an earlier break can never silence a
@@ -46,6 +55,8 @@ later one — the cleanup on break-end is best-effort and correctness doesn't de
 - **Owner-only baseline**, loosened deliberately per stage:
   - `users/{uid}`: owner read/write always; a **friend** may also read (`isFriendOf()`, an `exists()` check on `users/{uid}/friends/{request.auth.uid}`) — this is what makes the allowlist friend-visible.
   - `groups/{groupId}`: readable by members only; only the owner can create/update/delete the group doc itself.
+  - `groups/{groupId}/messages/{messageId}`: any member reads; a member creates only as themselves (`senderUid == request.auth.uid`); immutable (no update/delete).
+  - `groups/{groupId}/lobbies/{lobbyId}`: any member can read/create/update/delete — anyone can open a lobby, and the best-effort empty-lobby cleanup deletes it. `lobbyId` on liveStatus/mute docs is just a field, so those rules are unchanged.
   - `groups/{groupId}/liveStatus/{uid}`: any member can read; each member can only write their own doc, gated by an `exists()`/`get()` check that `request.auth.uid` is in the group's `memberUids`.
   - `groups/{groupId}/muteRequests/{uid}`: same shape as `liveStatus` — only the breaker writes their own request, any member reads it.
   - `groups/{groupId}/muteApprovals/{breakerUid}_{approverUid}`: any member reads; only the approver can create their own approval, and **never for themselves** (`approverUid != breakerUid`) — without that clause a breaker could self-approve past the room's threshold and the whole mechanic collapses. Either party may delete (the breaker cleans up when the break ends).
@@ -56,6 +67,33 @@ later one — the cleanup on break-end is best-effort and correctness doesn't de
   2. **Group membership:** owner-managed only (owner picks members from friends at creation or adds later) — no join/accept flow, sidesteps needing a non-owner to write to the group doc at all.
 
 ## Key Architectural Decisions & Gotchas
+- **Groups are persistent "servers"; lobbies are ephemeral live rooms.** A group is a standing
+  roster + group chat (Discord "server"). A **lobby** is a live lock-in room launched *inside* a
+  group; **multiple lobbies can run at once**, members hop into a running one as they arrive (no
+  ready-up). Each lobby has a **mode**: *CONCURRENT* (everyone locked in at once, each on their own
+  open-ended clock) or *SHARED* (one synced round — a `durationMinutes` sets `endsAtMillis`, and
+  everyone's session auto-stops together at that instant). Replaced the old "passive group" model
+  where any member starting a session implicitly wrote to a single group-wide `liveStatus`.
+- **Lobby presence is a `lobbyId` field on liveStatus, not a subcollection under the lobby.** Since a
+  user has one active session → one `liveStatus` doc, tagging it with `lobbyId` is enough to scope
+  members to a lobby; the room filters dots by it. This reused the existing member-gated
+  liveStatus/mute rules and stores almost unchanged instead of re-pathing three collections for the
+  multi-lobby model. The `lobbies/{lobbyId}` doc holds only the mode/timing config.
+- **SHARED-round auto-stop lives in the monitoring loop.** `LockInService` captures `endsAtMillis`
+  in `onCreate`; each tick, if `endsAtMillis > 0 && now >= endsAtMillis` it calls
+  `stopLockInSession(this)` (records history, clears liveStatus, marks prefs inactive) and exits the
+  loop. `SessionControls`/`GroupDetailScreen` reload the session each tick, so Home and the room
+  reflect the auto-stop within ~1s. This is also the first runtime-exercised timed auto-stop (the
+  2-min alarm cap shares the same "compare against a captured deadline" shape).
+- **Dead-lobby cleanup is best-effort + UI-hidden.** A lobby with no members that isn't brand-new
+  (12s grace, so the host can appear) — or a SHARED lobby past `endsAtMillis` — is hidden from the
+  room and `closeLobby`'d once per device (a `remember`ed id set prevents repeat deletes). Correctness
+  never depends on it: a stale lobby doc is harmless, just untidy.
+- **All group-session UI lives in the group room (`GroupDetailScreen`), not Home.** Live member
+  dots + the ask/approve-mute flow moved off Home into the lobby card. Home shows only your own
+  session status + Stop, plus an "Open group room" deep-link when the active session has a `groupId`
+  (resolved against `myGroups` in `MainActivity`). A blank (not null) Auth display name slips past a
+  plain `?:`, so name fallbacks now guard on `isNotBlank()` (REST-made test accounts have empty names).
 - **`UsageStatsManager` over Accessibility Service:** lower onboarding friction (plain "Usage Access" toggle vs. Accessibility's scary system warning), lower Play Store policy risk, simpler first implementation. Accepted tradeoff: polling-interval latency could let a very brief app-switch slip through.
 - **`currentForegroundApp()` uses a 1-hour lookback window** (stopgap) — an app sitting in the foreground longer than the lookback with no new switch event would otherwise wrongly report `null`. Technically correct fix (not yet done): query from the active session's start time instead of a fixed window.
 - **`LockInService` (foreground service) captures `ownerUid`, `groupId`, and `sessionStartMillis` in `onCreate`, not `onDestroy`:** `stopLockInSession()` clears the session store *before* `onDestroy` runs, and sign-out clears auth right after — reading them at teardown gets nothing.
@@ -82,6 +120,8 @@ later one — the cleanup on break-end is best-effort and correctness doesn't de
 - **PowerShell here-strings with embedded double quotes inside git commit messages can break argument parsing** — avoid double-quoted phrases in `git commit -m @'...'@` bodies; rephrase without quotes.
 
 ## Visual Design (implemented)
+> **Superseded by decision, not yet by code (2026-07-15):** everything below reflects the currently-**shipped** amber/green warm palette. A full redesign — "Bubblegum" pink/orange palette + theme picker, Fredoka/Nunito typography, and a reactive mascot companion — was decided the same day (see `CONTEXT.md`'s Design Direction) and is queued as Stage 6, but not yet built. This section will be rewritten once that lands.
+
 - `Theme.kt`: custom `LockInTheme` — **warm/energetic palette** (amber `#F57C1F` primary, green `#2BB673` secondary, warm-cream `#FBF7F2` background, red `#E8455F` error/alert), light + dark variants. Replaced the original lavender/sage/coral pastel scheme on 2026-07-15 at the user's request (see `CONTEXT.md`). `secondaryContainer` + `outline` tokens are set explicitly for the nav-bar pill and tonal rows.
 - Typography: **Quicksand** variable font (`app/src/main/res/font/quicksand.ttf`, SIL OFL, bundled from `google/fonts`), applied app-wide via a custom Material3 `Typography`; `FontVariation.weight(...)` derives Medium/SemiBold/Bold from the single variable-font file.
 - Navigation: **bottom `NavigationBar`** with five tabs — Home · Feed · Friends · Groups · Profile — is the primary nav (`LockInBottomBar` in `MainActivity.kt`). Active tab shows a tonal amber `primaryContainer` pill. Allowlist is nested under Profile (opens as a full screen with a back arrow, bottom bar hidden); Sign Out is a red action row inside Profile. Tab icons come from `material-icons-extended` (added as a dependency for `Groups`/`People`/`DynamicFeed`, absent from `material-icons-core`). Two `BackHandler`s make the system Back button mirror this hierarchy: from Allowlist it returns to Profile (same as the top-bar arrow), from any other non-Home tab it returns to Home; Home falls through to the system default (leave the app). Without them, hardware Back finished the activity from every screen.
@@ -93,7 +133,10 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 
 | File | Responsibility |
 |---|---|
-| `MainActivity.kt` | Screens (Auth gate, Onboarding gate, Home) + bottom-bar navigation shell (`LockInBottomBar`, 5 tabs; Allowlist nested under Profile); owns `AuthStateListener`, allowlist snapshot-listener, and group break-watcher lifecycles; the Home `NotificationNudge` banner + its `notificationsGranted` `onResume` re-check |
+| `MainActivity.kt` | Screens (Auth gate, Onboarding gate, Home) + bottom-bar navigation shell (`LockInBottomBar`, 5 tabs; Allowlist under Profile, **GroupDetail under Groups**); owns `AuthStateListener`, allowlist snapshot-listener, and group break-watcher lifecycles; the Home `NotificationNudge` banner + `onResume` re-check. `SessionControls` is now **solo-only** (status + Stop + an "Open group room" deep-link when in a group session) |
+| `GroupDetailScreen.kt` | The group **room** ("server" view): header, **lobby section** (list active lobbies with live member dots + join, a create panel with the CONCURRENT/SHARED toggle + duration stepper, and the relocated ask/approve-mute UI), shared-round countdown, dead-lobby hide/cleanup, and **group chat** |
+| `LobbyStore.kt` | `LockInLobby` model + `LobbyMode`; `openLobby` (returns id + `endsAtMillis`), `listenLobbies`, `closeLobby` |
+| `ChatStore.kt` | Group chat: `sendGroupMessage`, `listenGroupMessages` (`orderBy createdAt`, `limitToLast(50)`) |
 | `OnboardingScreen.kt` | 5-step permission-priming flow: welcome → why Usage Access → Settings walkthrough → notification priming → done |
 | `OnboardingStore.kt` | Persists the onboarding-complete flag; notification-permission checks; `appNotificationSettingsIntent` (deep-link for the Home nudge) |
 | `Theme.kt` | Colors, typography, `LockInTheme` |
@@ -101,14 +144,14 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 | `InstalledApps.kt` | Queries launchable apps for the allowlist |
 | `AllowlistStore.kt` / `AllowlistScreen.kt` | Allowlist local persistence (SharedPreferences) + UI |
 | `AllowlistSync.kt` | Two-way allowlist sync: Firestore is source of truth, toggle pushes, snapshot listener pulls into SharedPreferences |
-| `LockInSessionStore.kt` | Session active/start-time/groupId/groupName persistence + start/stop helpers |
+| `LockInSessionStore.kt` | Session active/start-time/groupId/groupName/**lobbyId/endsAtMillis** persistence + start/stop helpers |
 | `ActivityStore.kt` | Writes one friend-visible `users/{uid}/activity` event on session teardown; `fetchFeed()` fans out on read across own + friends and merges newest-first — the Stage 5 feed source |
 | `FeedScreen.kt` | Stage 5 social feed UI: soft cards (name, duration · breaks, group name, relative time, streak) with loading/empty states; per-card kudos heart |
 | `KudosStore.kt` | Kudos give/remove + live per-item listener (`activity/{eventId}/kudos/{reactorUid}`, one per reactor) |
 | `ProfileStore.kt` | On-the-fly streak computation from own `sessions` (`Calendar`-based local-day math) + `streakMinMinutes` get/set; also stamps `streakAtPost` at session end. `localMidnightMillis` is `internal` (not file-private) so `AchievementsStore` shares the same DST-correct day normalization |
 | `AchievementsStore.kt` | Pure `computeAchievements()` derives 7 tiered milestones from own `sessions` (no persisted state) + `fetchAchievements()` (same read shape as `fetchStreakInfo`); `longestConsecutiveDays()` powers the streak-shaped milestones off the *longest ever* run so they never un-earn |
 | `ProfileScreen.kt` | Profile UI: name, 🔥 streak hero, the friend-visible streak-goal (`streakMinMinutes`) −/+ stepper, and a scrollable earned/locked achievements grid (re-fetched when the goal changes) |
-| `LockInService.kt` | Foreground service: notification, screen-state receiver, compliance polling loop, alarm (+ cap), group live-status push, session-history write on teardown |
+| `LockInService.kt` | Foreground service: notification, screen-state receiver, compliance polling loop, alarm (+ cap), group live-status push (tagged with `lobbyId`), **SHARED-round auto-stop at `endsAtMillis`**, session-history write on teardown |
 | `ScreenStateReceiver.kt` | Wraps `SCREEN_ON`/`SCREEN_OFF` broadcast registration |
 | `ComplianceMonitor.kt` | Compliance model + `LockInMonitor` shared state (Service writes, UI observes): `complianceState`, `breakId`, and `alarmSounding` — the last published each tick from the service's settled `alarmActive` so the Home header can show "ALARM SOUNDING" (see Key Decisions) |
 | `AuthScreen.kt` | Email/password sign-in/sign-up UI (no success callback; MainActivity observes auth state) |
@@ -118,9 +161,9 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 | `FriendsStore.kt` | Friends-list listener, one-time fetch of a friend's allowlist |
 | `FriendsScreen.kt` | Add-friend, incoming requests, friends list with expandable allowlist view |
 | `GroupStore.kt` | Create group, listen to "my groups" |
-| `GroupsScreen.kt` | Create-group panel (name, friend picker, mute-approval threshold), groups list |
-| `GroupSessionStore.kt` | Push/clear/listen to a group's live per-member compliance status |
-| `MuteRequestStore.kt` | Group mute-approval flow: request/approve/clear + listeners for both collections |
+| `GroupsScreen.kt` | Create-group panel (name, friend picker, mute-approval threshold), groups list (rows open the room via `onOpenGroup`) |
+| `GroupSessionStore.kt` | Push/clear/listen to a group's live per-member compliance status; `MemberStatus`/`pushLiveStatus` carry `lobbyId` |
+| `MuteRequestStore.kt` | Group mute-approval flow: request/approve/clear + listeners for both collections; docs carry `lobbyId` |
 | `MockBreakNotifier.kt` | Watches groupmates' live status for breaks, raises a local "push-like" notification |
 
 Firebase config at project root: `firestore.rules`, `firebase.json`, `.firebaserc` (default project `lockin-app-sg`).

@@ -19,9 +19,9 @@ private const val TAG = "MuteRequestStore"
 // to. An approval only counts against a matching breakId, so leftover docs
 // from an earlier break can never silence a later one -- cleanup below is
 // best-effort, and correctness doesn't depend on it running.
-data class MuteRequest(val breakerUid: String, val displayName: String, val breakId: Long)
+data class MuteRequest(val breakerUid: String, val displayName: String, val breakId: Long, val lobbyId: String? = null)
 
-data class MuteApproval(val breakerUid: String, val approverUid: String, val breakId: Long)
+data class MuteApproval(val breakerUid: String, val approverUid: String, val breakId: Long, val lobbyId: String? = null)
 
 private fun requests(groupId: String) =
     Firebase.firestore.collection("groups").document(groupId).collection("muteRequests")
@@ -29,21 +29,23 @@ private fun requests(groupId: String) =
 private fun approvals(groupId: String) =
     Firebase.firestore.collection("groups").document(groupId).collection("muteApprovals")
 
-fun requestMute(groupId: String, breakerUid: String, displayName: String, breakId: Long) {
+fun requestMute(groupId: String, breakerUid: String, displayName: String, breakId: Long, lobbyId: String?) {
     val doc = mapOf(
         "displayName" to displayName,
         "breakId" to breakId,
+        "lobbyId" to lobbyId,
         "createdAt" to FieldValue.serverTimestamp(),
     )
     requests(groupId).document(breakerUid).set(doc)
         .addOnFailureListener { e -> Log.w(TAG, "Failed to request mute", e) }
 }
 
-fun approveMute(groupId: String, breakerUid: String, approverUid: String, breakId: Long) {
+fun approveMute(groupId: String, breakerUid: String, approverUid: String, breakId: Long, lobbyId: String?) {
     val doc = mapOf(
         "breakerUid" to breakerUid,
         "approverUid" to approverUid,
         "breakId" to breakId,
+        "lobbyId" to lobbyId,
         "createdAt" to FieldValue.serverTimestamp(),
     )
     approvals(groupId).document("${breakerUid}_$approverUid").set(doc)
@@ -70,7 +72,7 @@ fun listenMuteRequests(groupId: String, onChange: (List<MuteRequest>) -> Unit): 
             snapshot?.documents.orEmpty().mapNotNull { doc ->
                 val name = doc.getString("displayName") ?: return@mapNotNull null
                 val breakId = doc.getLong("breakId") ?: return@mapNotNull null
-                MuteRequest(doc.id, name, breakId)
+                MuteRequest(doc.id, name, breakId, doc.getString("lobbyId"))
             }
         )
     }
@@ -87,7 +89,7 @@ fun listenMuteApprovals(groupId: String, onChange: (List<MuteApproval>) -> Unit)
                 val breakerUid = doc.getString("breakerUid") ?: return@mapNotNull null
                 val approverUid = doc.getString("approverUid") ?: return@mapNotNull null
                 val breakId = doc.getLong("breakId") ?: return@mapNotNull null
-                MuteApproval(breakerUid, approverUid, breakId)
+                MuteApproval(breakerUid, approverUid, breakId, doc.getString("lobbyId"))
             }
         )
     }

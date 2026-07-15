@@ -1,5 +1,6 @@
 package com.example.lockin
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,7 +35,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 
 @Composable
-fun GroupsScreen() {
+fun GroupsScreen(onOpenGroup: (LockInGroup) -> Unit) {
     val myUid = Firebase.auth.currentUser?.uid
 
     var groups by remember { mutableStateOf<List<LockInGroup>>(emptyList()) }
@@ -88,7 +89,12 @@ fun GroupsScreen() {
             }
         }
         items(groups, key = { it.id }) { group ->
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenGroup(group) }
+                    .padding(vertical = 10.dp)
+            ) {
                 Text(
                     text = group.name,
                     style = MaterialTheme.typography.bodyLarge,

@@ -102,6 +102,22 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.memberUids;
       allow update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
 
+      // Ephemeral live rooms inside a group. Any member can open a lobby, see
+      // the group's lobbies, and close one (best-effort cleanup when the last
+      // member leaves). Presence is the lobbyId-tagged liveStatus below, not
+      // stored on the lobby doc.
+      match /lobbies/{lobbyId} {
+        allow read, create, update, delete: if isSignedIn() && isGroupMember(groupId);
+      }
+
+      // Group chat: any member reads the history; a member can only post as
+      // themselves. Messages are immutable once sent (no update/delete).
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && isGroupMember(groupId);
+        allow create: if isSignedIn() && isGroupMember(groupId) &&
+          request.auth.uid == request.resource.data.senderUid;
+      }
+
       // Live per-member compliance state during a group session. Each
       // member writes only their own doc; any member can read the group's.
       match /liveStatus/{uid} {
