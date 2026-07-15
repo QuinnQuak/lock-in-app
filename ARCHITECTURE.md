@@ -22,7 +22,8 @@
 ## Firestore Data Model
 ```
 users/{uid}                          — displayName, email, createdAt, allowlist (array<string>),
-                                        streakMinMinutes (per-user streak threshold, default 30, friend-visible)
+                                        streakMinMinutes (per-user streak threshold, default 30, friend-visible),
+                                        sparkles (Stage 6 currency counter, 1/min locked in, FieldValue.increment)
   /sessions/{sessionId}               — startedAt, endedAt, durationSeconds, breakCount (owner-only, private stats source)
   /activity/{eventId}                 — type (SOLO|GROUP), startedAt, endedAt, durationSeconds, breakCount,
                                         displayName, streakAtPost, groupId?, groupName? (Stage 5 feed; friend-readable)
@@ -124,7 +125,7 @@ later one — the cleanup on break-end is best-effort and correctness doesn't de
 - **PowerShell here-strings with embedded double quotes inside git commit messages can break argument parsing** — avoid double-quoted phrases in `git commit -m @'...'@` bodies; rephrase without quotes.
 
 ## Visual Design (implemented)
-> **Stage 6 steps 1–3 landed (2026-07-15):** palette/typography, the theme picker, and the mascot "blob buddy" below are shipped, replacing the amber/green/Quicksand scheme. Still queued from Stage 6: Sparkles currency, trophy case, Shop — see `CONTEXT.md`'s Design Direction and `NEXT_SESSION.md` for build order.
+> **Stage 6 steps 1–4 landed (2026-07-15):** palette/typography, the theme picker, the mascot "blob buddy" below, and the Sparkles currency (accrual + a Profile pill, display-only — see `SparklesStore.kt` in the codebase map) are shipped, replacing the amber/green/Quicksand scheme. Still queued from Stage 6: trophy case, Shop — see `CONTEXT.md`'s Design Direction and `NEXT_SESSION.md` for build order.
 
 - `Theme.kt`: custom `LockInTheme` — **"Bubblegum" palette** (pink `#FF4F8B` primary, orange `#FF9142` secondary, cherry-red `#E63950` error/alert — a distinct hue from primary so it doesn't read as a normal button, blush `#FFF3F6` background), light + dark variants, replacing the amber/green warm scheme (2026-07-15, see `CONTEXT.md`). Also carries a custom Material3 `Shapes` (10/14/20/26/34.dp extraSmall→extraLarge) plus ~20 hardcoded `RoundedCornerShape(...)` call sites bumped +6dp app-wide to match Fredoka's rounder letterforms (pill shapes at `RoundedCornerShape(50)` — percent-based, dots/toggles — left untouched).
 - **Mascot "blob buddy" (Stage 6 step 3, 2026-07-15, committed `112deee`):** `Mascot.kt` draws a round blob entirely in `Canvas` (no image asset) — body/limbs as `drawOval`, eyes/mouth as `drawCircle`/`drawArc` — that recolors live via `MaterialTheme.colorScheme.primary`/`onPrimary`, so it automatically follows both dark mode and the step-2 theme picker. `MascotMood` (IDLE/HAPPY/BREAK/SLEEPING) drives an infinite-transition breathing loop (IDLE), a bounce + ✨ overlay (HAPPY, triggered by a 2.5s `justCompleted` flag in `SessionControls` set on a **clean** Stop, i.e. not mid-alert), a droop + 💧 overlay (BREAK, on `isBreak || isAlarmSounding`), and dimmed alpha + closed eyes + floating 💤 (SLEEPING, no active session). Wired into Home (`SessionControls`), Profile (decorative, above the name), and the loading states in `ProfileScreen`/`FeedScreen` (above the existing spinner, which stays as the functional indicator). **All four moods verified on the emulator.** SLEEPING/IDLE/HAPPY were caught directly; BREAK needed the sticky group alarm — a solo break self-clears the instant Lock-In regains foreground, so it was confirmed by breaking inside a `Chat Test` group lobby (`mutebreaker` fixture), where the alarm outlives the break and `isAlarmSounding` keeps BREAK showing on return (`dumpsys audio` confirmed `USAGE_ALARM state:started`).
@@ -148,6 +149,7 @@ All Kotlin under `app/src/main/java/com/example/lockin/`:
 | `Theme.kt` | `AppTheme` (Bubblegum/Peach/Berry/Sunset) colors, Fredoka/Nunito typography, bumped `Shapes`, `LockInTheme` |
 | `ThemeStore.kt` | Device-local (`SharedPreferences`) get/set of the selected `AppTheme` |
 | `Mascot.kt` | `MascotMood` (IDLE/HAPPY/BREAK/SLEEPING) + `Mascot()`, a Canvas-drawn reactive blob recoloring to the active theme (Stage 6 step 3, `112deee`) |
+| `SparklesStore.kt` | Stage 6 currency: `awardSparkles(uid, durationSeconds)` bumps `users/{uid}.sparkles` by `floor(durationSeconds/60)` via `FieldValue.increment` (atomic, seeds an absent field) at session teardown; `fetchSparkles` reads it (0 on missing/failure). Display-only until the step 6 Shop (step 4, `8d63e56`) |
 | `UsageAccess.kt` | Usage Access permission check + foreground-app polling |
 | `InstalledApps.kt` | Queries launchable apps for the allowlist |
 | `AllowlistStore.kt` / `AllowlistScreen.kt` | Allowlist local persistence (SharedPreferences) + UI |
