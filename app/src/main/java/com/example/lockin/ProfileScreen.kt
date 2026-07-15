@@ -1,6 +1,7 @@
 package com.example.lockin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +18,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,7 +44,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 
 @Composable
-fun ProfileScreen() {
+fun ProfileScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
     val currentUser = Firebase.auth.currentUser
     val myUid = currentUser?.uid
     val myName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "You"
@@ -218,6 +225,67 @@ fun ProfileScreen() {
                 }
                 Spacer(Modifier.height(12.dp))
             }
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        // Settings — the app's config lives under Profile now that Home is just
+        // the timer. Allowlist navigates in; sign-out is a terminal action.
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+        SettingsRow(
+            icon = Icons.Rounded.Apps,
+            label = "Allowlist",
+            onClick = onOpenAllowlist,
+            showChevron = true
+        )
+        Spacer(Modifier.height(12.dp))
+        SettingsRow(
+            icon = Icons.AutoMirrored.Rounded.Logout,
+            label = "Sign out",
+            onClick = onSignOut,
+            tint = MaterialTheme.colorScheme.error,
+            showChevron = false
+        )
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    showChevron: Boolean,
+    tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = tint,
+            modifier = Modifier.weight(1f)
+        )
+        if (showChevron) {
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

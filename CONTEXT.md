@@ -47,7 +47,9 @@ Surfaced during design review and consciously deferred rather than accidentally 
 3. iOS is a possible future platform post-validation. The social/backend layer should be architected to not be Android-locked (Firebase backend is platform-agnostic) so iOS can be added as a second native client later without a backend rebuild.
 
 ## Design Direction
-Gamified but calming — a blend of **Finch** (soft pastel warmth, encouraging tone) and **Notion** (clean structure, minimalism). Avoid childish or overly "mascot-heavy" gamification; lean toward soft color palettes, clean typography, and subtle reward/streak mechanics rather than loud badges or cartoonish UI. (Implemented palette/typography specifics are in `ARCHITECTURE.md`.)
+Gamified but focused — clean structure (**Notion**) with an encouraging, non-childish tone. Avoid childish or overly "mascot-heavy" gamification; lean toward clean typography and subtle reward/streak mechanics rather than loud badges or cartoonish UI.
+
+- **Decided (2026-07-15):** the palette moved from the original soft lavender/sage/coral pastels to a **warm, energetic scheme** (amber primary, green momentum, warm-cream canvas, red alert) — the "lock in and get things done" energy over "calm and soothing." Navigation moved to a **bottom `NavigationBar`** (Home · Feed · Friends · Groups · Profile), with Allowlist + Sign Out nested under Profile. (Implemented palette/typography/nav specifics are in `ARCHITECTURE.md`.)
 
 ## MVP Feature Scope (in priority order)
 1. **Group lock-in sessions** — create/join, live session state, break detection triggers alarm + group alert

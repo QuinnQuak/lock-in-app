@@ -15,54 +15,64 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val LavenderPrimary = Color(0xFF7B6EF6)
-val LavenderPrimaryContainer = Color(0xFFE8E4FF)
-val LavenderOnPrimaryContainer = Color(0xFF29235C)
-val SageSecondary = Color(0xFF5E9C82)
-val CalmBackground = Color(0xFFFBFAFF)
-val CalmOnBackground = Color(0xFF2B2640)
-val CalmSurfaceVariant = Color(0xFFF1EEFB)
-val CalmOnSurfaceVariant = Color(0xFF453F5C)
-val CoralError = Color(0xFFE8637A)
-val CoralErrorContainer = Color(0xFFFFE1E6)
-val CoralOnErrorContainer = Color(0xFF5C1626)
+// Warm / energetic palette: amber drive, green momentum, warm-cream canvas.
+val AmberPrimary = Color(0xFFF57C1F)
+val AmberPrimaryContainer = Color(0xFFFFE1C4)
+val AmberOnPrimaryContainer = Color(0xFF5A2A00)
+val GreenSecondary = Color(0xFF2BB673)
+val GreenSecondaryContainer = Color(0xFFC7EFD8)
+val GreenOnSecondaryContainer = Color(0xFF0C3B22)
+val WarmBackground = Color(0xFFFBF7F2)
+val WarmOnBackground = Color(0xFF2A2019)
+val WarmSurfaceVariant = Color(0xFFF2E9DF)
+val WarmOnSurfaceVariant = Color(0xFF6E5D4E)
+val WarmOutline = Color(0xFFD8C9B8)
+val RedError = Color(0xFFE8455F)
+val RedErrorContainer = Color(0xFFFFDBE0)
+val RedOnErrorContainer = Color(0xFF5C1620)
 
 private val LockInLightColors = lightColorScheme(
-    primary = LavenderPrimary,
+    primary = AmberPrimary,
     onPrimary = Color.White,
-    primaryContainer = LavenderPrimaryContainer,
-    onPrimaryContainer = LavenderOnPrimaryContainer,
-    secondary = SageSecondary,
+    primaryContainer = AmberPrimaryContainer,
+    onPrimaryContainer = AmberOnPrimaryContainer,
+    secondary = GreenSecondary,
     onSecondary = Color.White,
-    background = CalmBackground,
-    onBackground = CalmOnBackground,
+    secondaryContainer = GreenSecondaryContainer,
+    onSecondaryContainer = GreenOnSecondaryContainer,
+    background = WarmBackground,
+    onBackground = WarmOnBackground,
     surface = Color.White,
-    onSurface = CalmOnBackground,
-    surfaceVariant = CalmSurfaceVariant,
-    onSurfaceVariant = CalmOnSurfaceVariant,
-    error = CoralError,
+    onSurface = WarmOnBackground,
+    surfaceVariant = WarmSurfaceVariant,
+    onSurfaceVariant = WarmOnSurfaceVariant,
+    outline = WarmOutline,
+    error = RedError,
     onError = Color.White,
-    errorContainer = CoralErrorContainer,
-    onErrorContainer = CoralOnErrorContainer,
+    errorContainer = RedErrorContainer,
+    onErrorContainer = RedOnErrorContainer,
 )
 
 private val LockInDarkColors = darkColorScheme(
-    primary = Color(0xFFB6ACFF),
-    onPrimary = Color(0xFF1E1B3A),
-    primaryContainer = Color(0xFF3B3570),
-    onPrimaryContainer = Color(0xFFE8E4FF),
-    secondary = Color(0xFF9ADFC0),
-    onSecondary = Color(0xFF113022),
-    background = Color(0xFF17151F),
-    onBackground = Color(0xFFEAE7F5),
-    surface = Color(0xFF1D1A29),
-    onSurface = Color(0xFFEAE7F5),
-    surfaceVariant = Color(0xFF2A2638),
-    onSurfaceVariant = Color(0xFFD9D5EA),
-    error = Color(0xFFFFB3C1),
-    onError = Color(0xFF5C1626),
-    errorContainer = Color(0xFF7A2B3D),
-    onErrorContainer = Color(0xFFFFE1E6),
+    primary = Color(0xFFFFB165),
+    onPrimary = Color(0xFF4A2600),
+    primaryContainer = Color(0xFF6B3D10),
+    onPrimaryContainer = Color(0xFFFFE1C4),
+    secondary = Color(0xFF6FDCA4),
+    onSecondary = Color(0xFF0A3B22),
+    secondaryContainer = Color(0xFF115535),
+    onSecondaryContainer = Color(0xFFC7EFD8),
+    background = Color(0xFF1A1613),
+    onBackground = Color(0xFFF0E8E1),
+    surface = Color(0xFF231D18),
+    onSurface = Color(0xFFF0E8E1),
+    surfaceVariant = Color(0xFF352C24),
+    onSurfaceVariant = Color(0xFFD9CBBD),
+    outline = Color(0xFF7A6A5A),
+    error = Color(0xFFFFB3BE),
+    onError = Color(0xFF5C1620),
+    errorContainer = Color(0xFF7A2534),
+    onErrorContainer = Color(0xFFFFDBE0),
 )
 
 @OptIn(ExperimentalTextApi::class)

@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
@@ -33,13 +34,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DynamicFeed
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -70,7 +79,30 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.delay
 
-private enum class Screen { Auth, Onboarding, Home, Allowlist, Friends, Groups, Feed, Profile }
+// Ordered for the screen-transition slide: the five bottom-bar tabs run
+// left-to-right in bar order, with Allowlist last since it slides in from the
+// right of Profile (its parent).
+private enum class Screen { Auth, Onboarding, Home, Feed, Friends, Groups, Profile, Allowlist }
+
+private val BottomTabs = listOf(Screen.Home, Screen.Feed, Screen.Friends, Screen.Groups, Screen.Profile)
+
+private val Screen.tabLabel: String
+    get() = when (this) {
+        Screen.Home -> "Home"
+        Screen.Feed -> "Feed"
+        Screen.Friends -> "Friends"
+        Screen.Groups -> "Groups"
+        else -> "Profile"
+    }
+
+private val Screen.tabIcon: ImageVector
+    get() = when (this) {
+        Screen.Home -> Icons.Rounded.Home
+        Screen.Feed -> Icons.Rounded.DynamicFeed
+        Screen.Friends -> Icons.Rounded.People
+        Screen.Groups -> Icons.Rounded.Groups
+        else -> Icons.Rounded.Person
+    }
 
 class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
@@ -116,22 +148,43 @@ class MainActivity : ComponentActivity() {
                     onDispose { regs.forEach { it.remove() } }
                 }
 
-                var subScreen by remember { mutableStateOf<Screen?>(null) }
+                // The selected bottom-bar tab (or Allowlist, nested under
+                // Profile). Auth/Onboarding gate in ahead of it below.
+                var current by remember { mutableStateOf(Screen.Home) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
                     // Usage Access is a hard requirement, so revoking it later
                     // drops the user back into onboarding (at the grant step).
                     !usageAccessGranted || !onboardingComplete -> Screen.Onboarding
-                    subScreen != null -> subScreen!!
-                    else -> Screen.Home
+                    else -> current
+                }
+                val showBottomBar = currentScreen in BottomTabs
+
+                // System back mirrors the nav hierarchy the UI already implies:
+                // the nested Allowlist returns to its parent Profile (same as the
+                // top-bar arrow); any other non-Home tab returns to Home, the
+                // start destination. Home (and the Auth/Onboarding gates) fall
+                // through to the system default, i.e. leave the app.
+                BackHandler(enabled = currentScreen == Screen.Allowlist) {
+                    current = Screen.Profile
+                }
+                BackHandler(enabled = currentScreen in BottomTabs && currentScreen != Screen.Home) {
+                    current = Screen.Home
                 }
 
                 Scaffold(
                     topBar = {
                         LockInTopBar(
                             screen = currentScreen,
-                            onBack = { subScreen = null }
+                            // Allowlist is the only back-navigable screen; it
+                            // returns to its parent tab, Profile.
+                            onBack = { current = Screen.Profile }
                         )
+                    },
+                    bottomBar = {
+                        if (showBottomBar) {
+                            LockInBottomBar(current = currentScreen, onSelect = { current = it })
+                        }
                     },
                     containerColor = MaterialTheme.colorScheme.background
                 ) { contentPadding ->
@@ -165,26 +218,25 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onFinish = { onboardingComplete = true }
                                     )
-                                    Screen.Home -> HomeScreen(
-                                        onOpenAllowlist = { subScreen = Screen.Allowlist },
-                                        onOpenFriends = { subScreen = Screen.Friends },
-                                        onOpenGroups = { subScreen = Screen.Groups },
-                                        onOpenFeed = { subScreen = Screen.Feed },
-                                        onOpenProfile = { subScreen = Screen.Profile },
+                                    Screen.Home -> HomeScreen()
+                                    Screen.Feed -> FeedScreen()
+                                    Screen.Friends -> FriendsScreen()
+                                    Screen.Groups -> GroupsScreen()
+                                    Screen.Profile -> ProfileScreen(
+                                        onOpenAllowlist = { current = Screen.Allowlist },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop
                                             // monitoring before the account goes away.
                                             if (loadSession(this@MainActivity).isActive) {
                                                 stopLockInSession(this@MainActivity)
                                             }
+                                            // Reset so the next sign-in lands on Home, not
+                                            // the Profile tab we signed out from.
+                                            current = Screen.Home
                                             Firebase.auth.signOut()
                                         }
                                     )
                                     Screen.Allowlist -> AllowlistScreen()
-                                    Screen.Friends -> FriendsScreen()
-                                    Screen.Groups -> GroupsScreen()
-                                    Screen.Feed -> FeedScreen()
-                                    Screen.Profile -> ProfileScreen()
                                 }
                             }
                         }
@@ -211,8 +263,6 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
-    val isSubScreen = screen == Screen.Allowlist || screen == Screen.Friends ||
-        screen == Screen.Groups || screen == Screen.Feed || screen == Screen.Profile
     TopAppBar(
         title = {
             Text(
@@ -228,7 +278,9 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
             )
         },
         navigationIcon = {
-            if (isSubScreen) {
+            // Tabs are reachable via the bottom bar; only the nested Allowlist
+            // screen needs a back affordance.
+            if (screen == Screen.Allowlist) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
@@ -239,7 +291,29 @@ private fun LockInTopBar(screen: Screen, onBack: () -> Unit) {
 }
 
 @Composable
-private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, onOpenGroups: () -> Unit, onOpenFeed: () -> Unit, onOpenProfile: () -> Unit, onSignOut: () -> Unit) {
+private fun LockInBottomBar(current: Screen, onSelect: (Screen) -> Unit) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        BottomTabs.forEach { tab ->
+            NavigationBarItem(
+                selected = current == tab,
+                onClick = { onSelect(tab) },
+                icon = { Icon(tab.tabIcon, contentDescription = tab.tabLabel) },
+                label = { Text(tab.tabLabel) },
+                colors = NavigationBarItemDefaults.colors(
+                    // Tonal amber pill on the active tab; muted neutrals otherwise.
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onBackground,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeScreen() {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -286,25 +360,6 @@ private fun HomeScreen(onOpenAllowlist: () -> Unit, onOpenFriends: () -> Unit, o
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-        TextButton(onClick = onOpenFeed) {
-            Text("Feed")
-        }
-        TextButton(onClick = onOpenProfile) {
-            Text("Profile")
-        }
-        TextButton(onClick = onOpenAllowlist) {
-            Text("Manage Allowlist")
-        }
-        TextButton(onClick = onOpenFriends) {
-            Text("Friends")
-        }
-        TextButton(onClick = onOpenGroups) {
-            Text("Groups")
-        }
-        TextButton(onClick = onSignOut) {
-            Text("Sign Out", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

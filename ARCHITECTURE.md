@@ -81,17 +81,18 @@ later one — the cleanup on break-end is best-effort and correctness doesn't de
 - **PowerShell here-strings with embedded double quotes inside git commit messages can break argument parsing** — avoid double-quoted phrases in `git commit -m @'...'@` bodies; rephrase without quotes.
 
 ## Visual Design (implemented)
-- `Theme.kt`: custom `LockInTheme` — soft lavender/sage/coral pastel palette (light + dark variants), chosen over Material3's default purple to match the Finch/Notion direction.
+- `Theme.kt`: custom `LockInTheme` — **warm/energetic palette** (amber `#F57C1F` primary, green `#2BB673` secondary, warm-cream `#FBF7F2` background, red `#E8455F` error/alert), light + dark variants. Replaced the original lavender/sage/coral pastel scheme on 2026-07-15 at the user's request (see `CONTEXT.md`). `secondaryContainer` + `outline` tokens are set explicitly for the nav-bar pill and tonal rows.
 - Typography: **Quicksand** variable font (`app/src/main/res/font/quicksand.ttf`, SIL OFL, bundled from `google/fonts`), applied app-wide via a custom Material3 `Typography`; `FontVariation.weight(...)` derives Medium/SemiBold/Bold from the single variable-font file.
-- Motion: `Scaffold` + top bar with spring-based `AnimatedContent` screen transitions; springy button press-scale via `animateFloatAsState` + `spring()`.
-- Direction explicitly chosen and confirmed with the user: "soft & tactile," not illustrated accents or a mascot/character — checked against `CONTEXT.md`'s "avoid childish/mascot-heavy" guidance rather than assumed.
+- Navigation: **bottom `NavigationBar`** with five tabs — Home · Feed · Friends · Groups · Profile — is the primary nav (`LockInBottomBar` in `MainActivity.kt`). Active tab shows a tonal amber `primaryContainer` pill. Allowlist is nested under Profile (opens as a full screen with a back arrow, bottom bar hidden); Sign Out is a red action row inside Profile. Tab icons come from `material-icons-extended` (added as a dependency for `Groups`/`People`/`DynamicFeed`, absent from `material-icons-core`). Two `BackHandler`s make the system Back button mirror this hierarchy: from Allowlist it returns to Profile (same as the top-bar arrow), from any other non-Home tab it returns to Home; Home falls through to the system default (leave the app). Without them, hardware Back finished the activity from every screen.
+- Motion: `Scaffold` + top bar + bottom bar with spring-based `AnimatedContent` screen transitions; springy button press-scale via `animateFloatAsState` + `spring()`.
+- Direction confirmed with the user via clarifying questions (2026-07-15): warm/energetic colors, bottom-bar navigation, outlined/tonal button weight, 5 tabs with Allowlist + Sign Out under Profile.
 
 ## Codebase Map
 All Kotlin under `app/src/main/java/com/example/lockin/`:
 
 | File | Responsibility |
 |---|---|
-| `MainActivity.kt` | Screens (Auth gate, Onboarding gate, Home, Allowlist, Friends, Groups) + navigation shell; owns `AuthStateListener`, allowlist snapshot-listener, and group break-watcher lifecycles |
+| `MainActivity.kt` | Screens (Auth gate, Onboarding gate, Home) + bottom-bar navigation shell (`LockInBottomBar`, 5 tabs; Allowlist nested under Profile); owns `AuthStateListener`, allowlist snapshot-listener, and group break-watcher lifecycles |
 | `OnboardingScreen.kt` | 5-step permission-priming flow: welcome → why Usage Access → Settings walkthrough → notification priming → done |
 | `OnboardingStore.kt` | Persists the onboarding-complete flag; notification-permission checks |
 | `Theme.kt` | Colors, typography, `LockInTheme` |
