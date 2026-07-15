@@ -84,4 +84,4 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 ## What's Next
 1. **Stage 5 is complete.** All three step-6 parts done and verified. Next up is **Stage 6 — Anti-Cheat Hardening**: the adversarial pass on Stage 1's detection (force-close leaving a phantom session, airplane mode, revoking permissions mid-session, and the "Stop Lock-In silences a sticky alarm" escape hatch).
 2. Two Stage-4 loose ends worth folding into Stage 6: the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
-3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`. The notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) is **not yet committed**.
+3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`; the notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) committed as `1de6fa3`.
