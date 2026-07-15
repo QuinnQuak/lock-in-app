@@ -11,7 +11,7 @@ moved into the group room; Home is solo-only + an "Open group room" deep-link. N
 `ChatStore.kt`, `LobbyStore.kt`, `GroupDetailScreen.kt`; new `groups/{id}/messages` + `lobbies` +
 a `lobbyId` field on liveStatus/mute docs. Built + emulator-verified in four steps (chat, concurrent
 lobbies + relocated mute UI, shared-mode auto-stop, dead-lobby cleanup) — see `PROGRESS.md`.
-**Not yet committed** — review the diff and commit.
+Committed as `9b8279f`.
 
 ## What's next
 **Stage 6 — Cute Redesign & Mascot Economy** (renumbered 2026-07-15 — this used to be Anti-Cheat
