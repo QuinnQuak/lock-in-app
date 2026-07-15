@@ -84,4 +84,4 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 ## What's Next
 1. **Stage 5, step 6 — remaining two parts of the polish pass.** The "ALARM SOUNDING" header state is done and verified; still to do: an in-app nudge if the user declined notifications during onboarding, and a visual pass over the new Feed/Profile/Achievements screens. After those, Stage 5 is complete.
 2. Two Stage-4 loose ends worth folding into a later stage: the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
-3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work is done but **uncommitted** (touches `ComplianceMonitor.kt`, `LockInService.kt`, `MainActivity.kt` + docs).
+3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a` (`ComplianceMonitor.kt`, `LockInService.kt`, `MainActivity.kt` + docs).
