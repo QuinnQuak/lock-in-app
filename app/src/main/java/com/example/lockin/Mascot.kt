@@ -40,7 +40,15 @@ enum class MascotMood {
 }
 
 @Composable
-fun Mascot(mood: MascotMood, modifier: Modifier = Modifier, size: Dp = 96.dp) {
+fun Mascot(
+    mood: MascotMood,
+    modifier: Modifier = Modifier,
+    size: Dp = 96.dp,
+    // Defaults to whatever the user has equipped (provided at the composition
+    // root), so every Mascot wears it. Call sites that preview a specific
+    // accessory (the trophy case / shop cells) pass one explicitly.
+    accessory: MascotAccessory = LocalEquippedAccessory.current,
+) {
     val bodyColor = MaterialTheme.colorScheme.primary
     val faceColor = MaterialTheme.colorScheme.onPrimary
 
@@ -204,6 +212,25 @@ fun Mascot(mood: MascotMood, modifier: Modifier = Modifier, size: Dp = 96.dp) {
                     .offset { androidx.compose.ui.unit.IntOffset(0, zzzFloat.roundToInt()) }
             )
             MascotMood.IDLE -> {}
+        }
+
+        // The equipped accessory, drawn as an emoji at its slot. Slots are
+        // centered (HEAD top, FACE over the eyes, NECK low on the body) so they
+        // never land on the corner mood overlays above.
+        if (accessory != MascotAccessory.NONE) {
+            val v = size.value
+            val (align, dy, fontFactor) = when (accessory.slot) {
+                AccessorySlot.HEAD -> Triple(Alignment.TopCenter, v * 0.02f, 0.34f)
+                AccessorySlot.FACE -> Triple(Alignment.Center, -v * 0.08f, 0.30f)
+                AccessorySlot.NECK -> Triple(Alignment.BottomCenter, -v * 0.16f, 0.26f)
+            }
+            Text(
+                text = accessory.emoji,
+                fontSize = (v * fontFactor).sp,
+                modifier = Modifier
+                    .align(align)
+                    .offset(y = dy.dp)
+            )
         }
     }
 }

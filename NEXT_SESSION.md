@@ -16,30 +16,31 @@ also added (`origin` → `QuinnQuak/lock-in-app`, public) and pushed once — bu
 without an explicit ask**; Quinn asked to pause pushing and stay local for now. Keep committing
 locally as usual.
 
-## What's next — RESUME POINT (Stage 6 step 5, trophy case)
-**Stage 6 — Cute Redesign & Mascot Economy** (renumbered 2026-07-15 — this used to be Anti-Cheat
-Hardening; that's now Stage 7). Same-day design redecision, superseding the amber/green palette that
-had *just* shipped in Stage 5 step 6: a "Bubblegum" pink/orange palette + light/dark + a curated
-theme picker (Bubblegum/Peach/Berry/Sunset), Fredoka/Nunito typography, and a reactive mascot
-("blob buddy") with equippable accessories — a trophy-case unlock per achievement tier, plus a
-broader Shop bought with a new passively-earned **Sparkles** currency (1/minute locked in). Full
-spec is in `CONTEXT.md`'s Design Direction.
+## What's next — RESUME POINT (Stage 7 — Anti-Cheat Hardening)
+**Stage 6 — Cute Redesign & Mascot Economy is COMPLETE (all 6 steps).** Same-day design redecision
+superseding the amber/green palette that had *just* shipped in Stage 5 step 6: a "Bubblegum"
+pink/orange palette + light/dark + a curated theme picker (Bubblegum/Peach/Berry/Sunset),
+Fredoka/Nunito typography, a reactive mascot ("blob buddy"), a trophy-case unlock per achievement
+tier, and a Shop bought with the passively-earned **Sparkles** currency (1/min locked in). Full spec
+in `CONTEXT.md`'s Design Direction; full build log in `PROGRESS.md`.
 
-**Steps 1–4 (palette + typography, theme picker, mascot, Sparkles currency) are built, verified, and
-committed** (`fda078c`, `0b41eaa`, `112deee`, `8d63e56`) — see `PROGRESS.md`. The mascot's four moods
-(SLEEPING/IDLE/HAPPY/BREAK) are all confirmed on the emulator; BREAK was caught via a `Chat Test`
-group lobby's sticky alarm (a solo break self-clears on refocus). Sparkles: `SparklesStore.kt` awards
-`floor(durationSeconds/60)` at session teardown via `FieldValue.increment` on `users/{uid}.sparkles`
-(seeds an absent field, no new rule), shown as a `✨ N Sparkle(s)` pill on Profile; verified with a
-real ~96s session (absent field → 1) plus plural/singular display checks.
+- Steps 1–4 (palette + typography, theme picker, mascot moods, Sparkles accrual/display) committed
+  `fda078c`, `0b41eaa`, `112deee`, `8d63e56`.
+- **Steps 5+6 (Trophy Case + Shop) built and verified together** — new `MascotWardrobe.kt` +
+  `MascotWardrobeStore.kt`; accessories are **emoji at a HEAD/FACE/NECK slot** overlaid on the blob
+  (not Canvas-drawn); the equipped accessory is hoisted via a `LocalEquippedAccessory`
+  `CompositionLocal` so **every** mascot wears it; `equippedAccessory` (string) + `ownedAccessories`
+  (array) ride the `users/{uid}` doc alongside `sparkles` (**no new rule**); trophy ownership is
+  derived from achievements, only Shop purchases persist; purchases use a **Firestore transaction**
+  (verify balance → decrement + `arrayUnion`). Verified: equip propagates to Home+Profile mascots and
+  across a cold relaunch; a Flower buy dropped ✨100→85, REST-confirmed `owned:[FLOWER]`,
+  `equipped:FLOWER`. Commit hash: see `PROGRESS.md` "What's Next".
 
-**Step 5 (trophy case) is next.** Map the 7 existing achievement tiers to auto-granted mascot
-accessories — reuses `AchievementsStore` as-is (no new unlock logic). Then step 6 (Shop: spend
-Sparkles on cosmetics, reusing the trophy case's equip/inventory plumbing). Per Quinn's ask
-(2026-07-15) steps 4–6 were meant to run back-to-back stopping only for bugs, but Quinn is checkpointing
-at each step — **confirm before starting step 5.**
-
-**Stage 7 — Anti-Cheat Hardening** (was Stage 6). The adversarial pass on Stage 1's detection core: the phantom "active" session left by a force-close, airplane mode defeating detection, revoking Usage Access mid-session, and the "Stop Lock-In silences a sticky alarm" free escape hatch. Fold in the two loose ends below.
+**Stage 7 — Anti-Cheat Hardening is the next stage.** The adversarial pass on Stage 1's detection
+core: the phantom "active" session left by a force-close, airplane mode defeating detection, revoking
+Usage Access mid-session, and the "Stop Lock-In silences a sticky alarm" free escape hatch. Fold in
+the two loose ends below. Scope it with Quinn before building (multi-round clarifying questions for
+anything ambiguous).
 
 **Stage 8 — Polish & Portfolio Packaging** (was Stage 7): onboarding flow docs, README, demo video/screenshots.
 
@@ -54,7 +55,7 @@ Friend-wide auto-posting feed; streak = a day with a lock-in ≥ a per-user, fri
 - **Typography:** Fredoka (500–700, headers/hero numbers/buttons/nav) + Nunito (400–700, body/chat/feed rows), replacing Quicksand; corner radii bumped app-wide.
 - **Mascot "blob buddy":** reactive companion, appears everywhere (Home hero, Profile, session status, loading states) — idle/breathing while compliant, happy bounce+sparkle on completion, droop+tears on break, sleeping "zzz" when idle; recolors to the active theme.
 - **Mascot accessories:** trophy case (1 signature accessory per achievement tier, auto-granted, never purchasable — reuses the existing 7-tier achievement system) + a broader Shop bought with **Sparkles** (new currency, 1/minute locked in, solo or group).
-- **Build order (decided 2026-07-15):** 1) palette + typography swap ✅ done, 2) theme picker (Peach/Berry/Sunset) ✅ done, 3) mascot "blob buddy" static states ✅ done (all 4 moods verified, committed `112deee`), 4) Sparkles currency (accrual + display only) ✅ done (`8d63e56`), 5) trophy case (auto-granted, reuses `AchievementsStore`) — next, 6) Shop (spend Sparkles, reuses trophy case's equip/inventory plumbing). Full rationale in `CONTEXT.md`.
+- **Build order (decided 2026-07-15) — ALL DONE:** 1) palette + typography swap ✅ done, 2) theme picker (Peach/Berry/Sunset) ✅ done, 3) mascot "blob buddy" static states ✅ done (all 4 moods verified, committed `112deee`), 4) Sparkles currency (accrual + display only) ✅ done (`8d63e56`), 5) trophy case ✅ done (auto-granted, ownership derived from `AchievementsStore`), 6) Shop ✅ done (spend Sparkles via a transaction, reuses the trophy case's single equip slot + inventory plumbing). Stage 6 complete. Full rationale in `CONTEXT.md`.
 
 ## Test fixtures (see `ARCHITECTURE.md` for full detail)
 - Emulator is signed in as `mutebreaker@lockin.test` / `MuteTest2026`, with 3 backdated 30-min sessions faking a 🔥3 streak.

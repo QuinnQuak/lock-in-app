@@ -27,11 +27,13 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +55,8 @@ import com.google.firebase.auth.auth
 fun ProfileScreen(
     currentTheme: AppTheme,
     onThemeChange: (AppTheme) -> Unit,
+    equippedAccessory: MascotAccessory,
+    onEquipAccessory: (MascotAccessory) -> Unit,
     onOpenAllowlist: () -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -64,6 +68,10 @@ fun ProfileScreen(
     var threshold by remember { mutableStateOf<Int?>(null) }
     var achievements by remember { mutableStateOf<List<Achievement>?>(null) }
     var sparkles by remember { mutableStateOf<Long?>(null) }
+    // Purchased shop cosmetics; trophy ownership is derived from `achievements`.
+    var ownedShop by remember { mutableStateOf<Set<MascotAccessory>>(emptySet()) }
+    // The shop item awaiting a buy confirmation, if any.
+    var pendingPurchase by remember { mutableStateOf<ShopItem?>(null) }
 
     LaunchedEffect(myUid) {
         if (myUid == null) return@LaunchedEffect
@@ -72,7 +80,11 @@ fun ProfileScreen(
             threshold = info.thresholdMinutes
         }
         fetchAchievements(myUid) { achievements = it }
-        fetchSparkles(myUid) { sparkles = it }
+        // One read covers the Sparkles pill + owned shop items.
+        fetchWardrobe(myUid) { w ->
+            sparkles = w.sparkles
+            ownedShop = w.ownedShop
+        }
     }
 
     fun changeThreshold(delta: Int) {
@@ -280,6 +292,136 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(32.dp))
 
+        // Trophy Case — one signature accessory per achievement tier, auto-granted
+        // (never bought), index-aligned to the achievements above. Equipping is a
+        // single slot shared with the Shop; the "None" chip goes back to a bare blob.
+        if (loadedAchievements != null) {
+            val unlockedCount = loadedAchievements.take(TROPHY_ACCESSORIES.size).count { it.earned }
+            SectionHeader(
+                title = "Trophy Case",
+                trailing = "$unlockedCount of ${TROPHY_ACCESSORIES.size} unlocked"
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Earn achievements to unlock accessories for your buddy.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            val trophyChips = buildList {
+                add(
+                    AccessoryChipModel(
+                        accessory = MascotAccessory.NONE,
+                        sublabel = if (equippedAccessory == MascotAccessory.NONE) "Equipped" else "Bare",
+                        owned = true,
+                        equipped = equippedAccessory == MascotAccessory.NONE,
+                        enabled = true,
+                        onClick = { onEquipAccessory(MascotAccessory.NONE) },
+                    )
+                )
+                TROPHY_ACCESSORIES.forEachIndexed { i, acc ->
+                    val earned = loadedAchievements.getOrNull(i)?.earned == true
+                    add(
+                        AccessoryChipModel(
+                            accessory = acc,
+                            sublabel = when {
+                                !earned -> "Locked"
+                                equippedAccessory == acc -> "Equipped"
+                                else -> "Tap to wear"
+                            },
+                            owned = earned,
+                            equipped = earned && equippedAccessory == acc,
+                            enabled = earned,
+                            onClick = { onEquipAccessory(acc) },
+                        )
+                    )
+                }
+            }
+            trophyChips.chunked(4).forEach { rowModels ->
+                AccessoryChipRow(rowModels)
+                Spacer(Modifier.height(12.dp))
+            }
+
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // Shop — cosmetics bought with Sparkles (earned 1/min locked in). Same
+        // single equip slot as the trophy case. Tapping an unowned, affordable
+        // item confirms a purchase; an owned item just equips.
+        val loadedSparklesForShop = sparkles
+        if (loadedSparklesForShop != null) {
+            SectionHeader(title = "Shop", trailing = "✨ $loadedSparklesForShop")
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Spend Sparkles on extra accessories. You earn 1 per minute locked in.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            val shopChips = SHOP_ITEMS.map { item ->
+                val owned = item.accessory in ownedShop
+                val affordable = loadedSparklesForShop >= item.price
+                AccessoryChipModel(
+                    accessory = item.accessory,
+                    sublabel = when {
+                        owned && equippedAccessory == item.accessory -> "Equipped"
+                        owned -> "Tap to wear"
+                        else -> "✨ ${item.price}"
+                    },
+                    owned = owned,
+                    equipped = owned && equippedAccessory == item.accessory,
+                    // Owned -> always tappable (equip); unowned -> only if affordable.
+                    enabled = owned || affordable,
+                    onClick = {
+                        if (owned) onEquipAccessory(item.accessory)
+                        else pendingPurchase = item
+                    },
+                )
+            }
+            shopChips.chunked(4).forEach { rowModels ->
+                AccessoryChipRow(rowModels)
+                Spacer(Modifier.height(12.dp))
+            }
+
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // Buy-confirmation dialog. Spending currency is worth an explicit tap.
+        val toBuy = pendingPurchase
+        if (toBuy != null) {
+            AlertDialog(
+                onDismissRequest = { pendingPurchase = null },
+                title = { Text("Buy ${toBuy.accessory.displayName}?") },
+                text = {
+                    Text("This costs ✨ ${toBuy.price}. It'll be added to your wardrobe and equipped right away.")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val uid = myUid
+                        pendingPurchase = null
+                        if (uid != null) {
+                            purchaseAccessory(uid, toBuy) { success, newBalance ->
+                                if (success) {
+                                    sparkles = newBalance
+                                    ownedShop = ownedShop + toBuy.accessory
+                                    onEquipAccessory(toBuy.accessory)
+                                }
+                            }
+                        }
+                    }) {
+                        Text("Buy", fontWeight = FontWeight.SemiBold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingPurchase = null }) { Text("Cancel") }
+                }
+            )
+        }
+
         // Theme picker — a curated set of accent skins, not an open picker
         // (see CONTEXT.md's Design Direction). Device-local only (ThemeStore).
         Text(
@@ -437,6 +579,104 @@ private fun RowScope.AchievementCell(a: Achievement, modifier: Modifier = Modifi
             style = MaterialTheme.typography.bodySmall,
             textAlign = TextAlign.Center,
             color = if (a.earned) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String, trailing: String? = null) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (trailing != null) {
+            Text(
+                text = trailing,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// One cell in the trophy case / shop grid. Shared model so both sections use the
+// same chip: a slot-agnostic emoji puck with owned/equipped/locked styling.
+private data class AccessoryChipModel(
+    val accessory: MascotAccessory,
+    val sublabel: String,
+    val owned: Boolean,
+    val equipped: Boolean,
+    val enabled: Boolean,
+    val onClick: () -> Unit,
+)
+
+@Composable
+private fun AccessoryChipRow(models: List<AccessoryChipModel>) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        models.forEach { AccessoryChip(it, Modifier.weight(1f)) }
+        // Pad a short final row so chips keep their column width, not stretch.
+        repeat(4 - models.size) { Spacer(Modifier.weight(1f)) }
+    }
+}
+
+@Composable
+private fun AccessoryChip(model: AccessoryChipModel, modifier: Modifier = Modifier) {
+    val circleBg = if (model.equipped) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceVariant
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(enabled = model.enabled, onClick = model.onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(circleBg)
+                .then(
+                    if (model.equipped) Modifier.border(3.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    else Modifier
+                )
+                .alpha(if (model.owned) 1f else 0.4f),
+            contentAlignment = Alignment.Center
+        ) {
+            if (model.accessory == MascotAccessory.NONE) {
+                Text(
+                    text = "—",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(text = model.accessory.emoji, style = MaterialTheme.typography.headlineSmall)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = model.accessory.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (model.owned) FontWeight.SemiBold else FontWeight.Normal,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            color = if (model.owned) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = model.sublabel,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            color = if (model.equipped) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

@@ -58,6 +58,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -156,6 +157,20 @@ class MainActivity : ComponentActivity() {
                     onDispose { regs.forEach { it.remove() } }
                 }
 
+                // The mascot accessory the user has equipped, hoisted here so
+                // every Mascot in the tree wears it via LocalEquippedAccessory
+                // (see MascotWardrobe.kt). Sourced from Firestore on sign-in;
+                // reset on sign-out so the next account starts bare.
+                var equippedAccessory by remember { mutableStateOf(MascotAccessory.NONE) }
+                LaunchedEffect(signedIn) {
+                    equippedAccessory = MascotAccessory.NONE
+                    if (signedIn) {
+                        Firebase.auth.currentUser?.uid?.let { uid ->
+                            fetchEquippedAccessory(uid) { equippedAccessory = it }
+                        }
+                    }
+                }
+
                 // The selected bottom-bar tab (or a nested screen: Allowlist
                 // under Profile, GroupDetail under Groups). Auth/Onboarding gate
                 // in ahead of it below.
@@ -192,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     current = Screen.Home
                 }
 
+                CompositionLocalProvider(LocalEquippedAccessory provides equippedAccessory) {
                 Scaffold(
                     topBar = {
                         LockInTopBar(
@@ -277,6 +293,14 @@ class MainActivity : ComponentActivity() {
                                             appTheme = theme
                                             saveAppTheme(this@MainActivity, theme)
                                         },
+                                        equippedAccessory = equippedAccessory,
+                                        // Optimistic: update the hoisted state so
+                                        // every Mascot re-wears instantly, then
+                                        // persist to Firestore.
+                                        onEquipAccessory = { acc ->
+                                            equippedAccessory = acc
+                                            Firebase.auth.currentUser?.uid?.let { equipAccessory(it, acc) }
+                                        },
                                         onOpenAllowlist = { current = Screen.Allowlist },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop
@@ -295,6 +319,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
                 }
             }
         }
