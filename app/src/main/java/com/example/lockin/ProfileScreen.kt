@@ -1,7 +1,9 @@
 package com.example.lockin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,13 +16,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -37,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,7 +50,12 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
 
 @Composable
-fun ProfileScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
+fun ProfileScreen(
+    currentTheme: AppTheme,
+    onThemeChange: (AppTheme) -> Unit,
+    onOpenAllowlist: () -> Unit,
+    onSignOut: () -> Unit
+) {
     val currentUser = Firebase.auth.currentUser
     val myUid = currentUser?.uid
     val myName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "You"
@@ -229,6 +240,31 @@ fun ProfileScreen(onOpenAllowlist: () -> Unit, onSignOut: () -> Unit) {
 
         Spacer(Modifier.height(32.dp))
 
+        // Theme picker — a curated set of accent skins, not an open picker
+        // (see CONTEXT.md's Design Direction). Device-local only (ThemeStore).
+        Text(
+            text = "Theme",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            AppTheme.entries.forEach { theme ->
+                ThemeSwatch(
+                    theme = theme,
+                    selected = theme == currentTheme,
+                    onClick = { onThemeChange(theme) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+
         // Settings — the app's config lives under Profile now that Home is just
         // the timer. Allowlist navigates in; sign-out is a terminal action.
         Text(
@@ -287,6 +323,44 @@ private fun SettingsRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun ThemeSwatch(
+    theme: AppTheme,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Preview each skin's own primary, not the current app theme's -- this is
+    // the one place a swatch must show a color other than MaterialTheme's.
+    val swatchColor = theme.colorScheme(dark = isSystemInDarkTheme()).primary
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(swatchColor)
+                .then(
+                    if (selected) Modifier.border(3.dp, MaterialTheme.colorScheme.onBackground, CircleShape)
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = theme.label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

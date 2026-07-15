@@ -113,6 +113,8 @@ class MainActivity : ComponentActivity() {
     // Re-checked on resume so returning from the notification settings screen
     // (via the Home nudge) makes the nudge vanish once alerts are on.
     private var notificationsGranted by mutableStateOf(false)
+    // Device-local (ThemeStore, not Firestore) -- loaded once in onCreate below.
+    private var appTheme by mutableStateOf(AppTheme.BUBBLEGUM)
 
     // Fires immediately on registration with the current state, then again on
     // every sign-in/sign-out — so `signedIn` needs no separate initialization.
@@ -123,8 +125,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Firebase.auth.addAuthStateListener(authStateListener)
+        appTheme = loadAppTheme(this)
         setContent {
-            LockInTheme {
+            LockInTheme(theme = appTheme) {
                 // While signed in, mirror the Firestore allowlist into the
                 // local SharedPreferences cache; torn down on sign-out.
                 DisposableEffect(signedIn) {
@@ -269,6 +272,11 @@ class MainActivity : ComponentActivity() {
                                     )
                                     Screen.GroupDetail -> selectedGroup?.let { GroupDetailScreen(group = it) }
                                     Screen.Profile -> ProfileScreen(
+                                        currentTheme = appTheme,
+                                        onThemeChange = { theme ->
+                                            appTheme = theme
+                                            saveAppTheme(this@MainActivity, theme)
+                                        },
                                         onOpenAllowlist = { current = Screen.Allowlist },
                                         onSignOut = {
                                             // An active session can't outlive its owner: stop

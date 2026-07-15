@@ -2,6 +2,7 @@ package com.example.lockin
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -18,46 +19,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Bubblegum palette: pink primary, orange secondary (ties to the 🔥 streak),
-// cherry-red alert/break (a distinct hue from primary so it never reads as a normal button).
-val BubblegumPrimary = Color(0xFFFF4F8B)
-val BubblegumPrimaryContainer = Color(0xFFFFD6E4)
-val BubblegumOnPrimaryContainer = Color(0xFF5C0F2E)
-val BubblegumSecondary = Color(0xFFFF9142)
-val BubblegumSecondaryContainer = Color(0xFFFFE0C2)
-val BubblegumOnSecondaryContainer = Color(0xFF5A2800)
-val BubblegumBackground = Color(0xFFFFF3F6)
-val BubblegumOnBackground = Color(0xFF3A1F2E)
-val BubblegumSurfaceVariant = Color(0xFFFBE4EC)
-val BubblegumOnSurfaceVariant = Color(0xFF7A5566)
-val BubblegumOutline = Color(0xFFE8B9CB)
+// Theme picker skins (decided 2026-07-15): a curated set of accent skins, not an
+// open picker, to keep the system cohesive. Each has its own light+dark pair.
+// Error/break stays the same cherry red across every skin -- it's a functional
+// signal (the break/alarm state), not a brand color, and re-skinning it per
+// theme would mean relearning "what red means" on every switch.
+enum class AppTheme(val label: String) {
+    BUBBLEGUM("Bubblegum"),
+    PEACH("Peach"),
+    BERRY("Berry"),
+    SUNSET("Sunset"),
+}
+
 val CherryError = Color(0xFFE63950)
 val CherryErrorContainer = Color(0xFFFFD9DE)
 val CherryOnErrorContainer = Color(0xFF5C1620)
+private val CherryErrorDark = Color(0xFFFF5C72)
+private val CherryOnErrorDark = Color(0xFF5C1620)
+private val CherryErrorContainerDark = Color(0xFF7A2534)
+private val CherryOnErrorContainerDark = Color(0xFFFFD9DE)
 
-private val LockInLightColors = lightColorScheme(
+// Bubblegum (default): pink primary, orange secondary -- ties to the 🔥 streak.
+val BubblegumPrimary = Color(0xFFFF4F8B)
+private val BubblegumLightColors = lightColorScheme(
     primary = BubblegumPrimary,
     onPrimary = Color.White,
-    primaryContainer = BubblegumPrimaryContainer,
-    onPrimaryContainer = BubblegumOnPrimaryContainer,
-    secondary = BubblegumSecondary,
+    primaryContainer = Color(0xFFFFD6E4),
+    onPrimaryContainer = Color(0xFF5C0F2E),
+    secondary = Color(0xFFFF9142),
     onSecondary = Color.White,
-    secondaryContainer = BubblegumSecondaryContainer,
-    onSecondaryContainer = BubblegumOnSecondaryContainer,
-    background = BubblegumBackground,
-    onBackground = BubblegumOnBackground,
+    secondaryContainer = Color(0xFFFFE0C2),
+    onSecondaryContainer = Color(0xFF5A2800),
+    background = Color(0xFFFFF3F6),
+    onBackground = Color(0xFF3A1F2E),
     surface = Color(0xFFFFFAFB),
-    onSurface = BubblegumOnBackground,
-    surfaceVariant = BubblegumSurfaceVariant,
-    onSurfaceVariant = BubblegumOnSurfaceVariant,
-    outline = BubblegumOutline,
+    onSurface = Color(0xFF3A1F2E),
+    surfaceVariant = Color(0xFFFBE4EC),
+    onSurfaceVariant = Color(0xFF7A5566),
+    outline = Color(0xFFE8B9CB),
     error = CherryError,
     onError = Color.White,
     errorContainer = CherryErrorContainer,
     onErrorContainer = CherryOnErrorContainer,
 )
-
-private val LockInDarkColors = darkColorScheme(
+private val BubblegumDarkColors = darkColorScheme(
     primary = Color(0xFFFF6FA3),
     onPrimary = Color(0xFF4A0E28),
     primaryContainer = Color(0xFF6B2246),
@@ -73,11 +78,152 @@ private val LockInDarkColors = darkColorScheme(
     surfaceVariant = Color(0xFF402A38),
     onSurfaceVariant = Color(0xFFD9BDC9),
     outline = Color(0xFF8A6575),
-    error = Color(0xFFFF5C72),
-    onError = Color(0xFF5C1620),
-    errorContainer = Color(0xFF7A2534),
-    onErrorContainer = Color(0xFFFFD9DE),
+    error = CherryErrorDark,
+    onError = CherryOnErrorDark,
+    errorContainer = CherryErrorContainerDark,
+    onErrorContainer = CherryOnErrorContainerDark,
 )
+
+// Peach: orange primary / pink secondary -- Bubblegum's roles swapped.
+private val PeachLightColors = lightColorScheme(
+    primary = Color(0xFFFF9142),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFE0C2),
+    onPrimaryContainer = Color(0xFF5A2800),
+    secondary = Color(0xFFFF4F8B),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFFFD6E4),
+    onSecondaryContainer = Color(0xFF5C0F2E),
+    background = Color(0xFFFFF4EC),
+    onBackground = Color(0xFF3A2A1F),
+    surface = Color(0xFFFFFBF7),
+    onSurface = Color(0xFF3A2A1F),
+    surfaceVariant = Color(0xFFFCEBDD),
+    onSurfaceVariant = Color(0xFF7A6152),
+    outline = Color(0xFFE8CBB0),
+    error = CherryError,
+    onError = Color.White,
+    errorContainer = CherryErrorContainer,
+    onErrorContainer = CherryOnErrorContainer,
+)
+private val PeachDarkColors = darkColorScheme(
+    primary = Color(0xFFFFA766),
+    onPrimary = Color(0xFF4A2600),
+    primaryContainer = Color(0xFF6B3F10),
+    onPrimaryContainer = Color(0xFFFFE0C2),
+    secondary = Color(0xFFFF6FA3),
+    onSecondary = Color(0xFF4A0E28),
+    secondaryContainer = Color(0xFF6B2246),
+    onSecondaryContainer = Color(0xFFFFD6E4),
+    background = Color(0xFF241A14),
+    onBackground = Color(0xFFF5EAE0),
+    surface = Color(0xFF33251C),
+    onSurface = Color(0xFFF5EAE0),
+    surfaceVariant = Color(0xFF402F24),
+    onSurfaceVariant = Color(0xFFD9C4B3),
+    outline = Color(0xFF8A7361),
+    error = CherryErrorDark,
+    onError = CherryOnErrorDark,
+    errorContainer = CherryErrorContainerDark,
+    onErrorContainer = CherryOnErrorContainerDark,
+)
+
+// Berry: deeper magenta-pink primary / coral secondary.
+private val BerryLightColors = lightColorScheme(
+    primary = Color(0xFFC2185B),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFD0E0),
+    onPrimaryContainer = Color(0xFF4A0A28),
+    secondary = Color(0xFFFF7A5C),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFFFDDD2),
+    onSecondaryContainer = Color(0xFF5C2416),
+    background = Color(0xFFFDF0F5),
+    onBackground = Color(0xFF351A2A),
+    surface = Color(0xFFFFFAFC),
+    onSurface = Color(0xFF351A2A),
+    surfaceVariant = Color(0xFFF7E3ED),
+    onSurfaceVariant = Color(0xFF7A5568),
+    outline = Color(0xFFE0B8CC),
+    error = CherryError,
+    onError = Color.White,
+    errorContainer = CherryErrorContainer,
+    onErrorContainer = CherryOnErrorContainer,
+)
+private val BerryDarkColors = darkColorScheme(
+    primary = Color(0xFFFF6FA8),
+    onPrimary = Color(0xFF4A0A28),
+    primaryContainer = Color(0xFF6B1F45),
+    onPrimaryContainer = Color(0xFFFFD0E0),
+    secondary = Color(0xFFFFA084),
+    onSecondary = Color(0xFF4A1C0E),
+    secondaryContainer = Color(0xFF6B3624),
+    onSecondaryContainer = Color(0xFFFFDDD2),
+    background = Color(0xFF1F1420),
+    onBackground = Color(0xFFF5E3EE),
+    surface = Color(0xFF2E1E2E),
+    onSurface = Color(0xFFF5E3EE),
+    surfaceVariant = Color(0xFF3D2A38),
+    onSurfaceVariant = Color(0xFFD6BBCB),
+    outline = Color(0xFF866478),
+    error = CherryErrorDark,
+    onError = CherryOnErrorDark,
+    errorContainer = CherryErrorContainerDark,
+    onErrorContainer = CherryOnErrorContainerDark,
+)
+
+// Sunset: red-orange forward, hotter/punchier -- golden-amber secondary.
+private val SunsetLightColors = lightColorScheme(
+    primary = Color(0xFFFF5A36),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFD9CC),
+    onPrimaryContainer = Color(0xFF5C1C0A),
+    secondary = Color(0xFFFFB100),
+    onSecondary = Color(0xFF402D00),
+    secondaryContainer = Color(0xFFFFECB3),
+    onSecondaryContainer = Color(0xFF4A3300),
+    background = Color(0xFFFFF1EC),
+    onBackground = Color(0xFF3A1F14),
+    surface = Color(0xFFFFFAF7),
+    onSurface = Color(0xFF3A1F14),
+    surfaceVariant = Color(0xFFFCE3D6),
+    onSurfaceVariant = Color(0xFF7A5A48),
+    outline = Color(0xFFE8BEA6),
+    error = CherryError,
+    onError = Color.White,
+    errorContainer = CherryErrorContainer,
+    onErrorContainer = CherryOnErrorContainer,
+)
+private val SunsetDarkColors = darkColorScheme(
+    primary = Color(0xFFFF8560),
+    onPrimary = Color(0xFF4A1C0A),
+    primaryContainer = Color(0xFF6B2C14),
+    onPrimaryContainer = Color(0xFFFFD9CC),
+    secondary = Color(0xFFFFD166),
+    onSecondary = Color(0xFF4A3300),
+    secondaryContainer = Color(0xFF6B4E10),
+    onSecondaryContainer = Color(0xFFFFECB3),
+    background = Color(0xFF241209),
+    onBackground = Color(0xFFF5E5DC),
+    surface = Color(0xFF332014),
+    onSurface = Color(0xFFF5E5DC),
+    surfaceVariant = Color(0xFF402C1F),
+    onSurfaceVariant = Color(0xFFD9BBA8),
+    outline = Color(0xFF8A6852),
+    error = CherryErrorDark,
+    onError = CherryOnErrorDark,
+    errorContainer = CherryErrorContainerDark,
+    onErrorContainer = CherryOnErrorContainerDark,
+)
+
+// Not private: the theme-picker UI (ProfileScreen) uses this to preview each
+// skin's own primary color as a swatch, and LockInTheme below applies it live.
+fun AppTheme.colorScheme(dark: Boolean): ColorScheme = when (this) {
+    AppTheme.BUBBLEGUM -> if (dark) BubblegumDarkColors else BubblegumLightColors
+    AppTheme.PEACH -> if (dark) PeachDarkColors else PeachLightColors
+    AppTheme.BERRY -> if (dark) BerryDarkColors else BerryLightColors
+    AppTheme.SUNSET -> if (dark) SunsetDarkColors else SunsetLightColors
+}
 
 // Fredoka: headers, hero numbers, buttons, nav labels — bold, chunky, high-personality.
 @OptIn(ExperimentalTextApi::class)
@@ -167,7 +313,7 @@ private fun TextStyle.withFredoka(): TextStyle = copy(fontFamily = FredokaFamily
 private fun TextStyle.withNunito(): TextStyle = copy(fontFamily = NunitoFamily)
 
 @Composable
-fun LockInTheme(content: @Composable () -> Unit) {
-    val colorScheme = if (isSystemInDarkTheme()) LockInDarkColors else LockInLightColors
+fun LockInTheme(theme: AppTheme = AppTheme.BUBBLEGUM, content: @Composable () -> Unit) {
+    val colorScheme = theme.colorScheme(dark = isSystemInDarkTheme())
     MaterialTheme(colorScheme = colorScheme, typography = LockInTypography, shapes = LockInShapes, content = content)
 }
