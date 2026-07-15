@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.DynamicFeed
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Button
@@ -108,6 +110,9 @@ class MainActivity : ComponentActivity() {
     private var usageAccessGranted by mutableStateOf(false)
     private var onboardingComplete by mutableStateOf(false)
     private var signedIn by mutableStateOf(false)
+    // Re-checked on resume so returning from the notification settings screen
+    // (via the Home nudge) makes the nudge vanish once alerts are on.
+    private var notificationsGranted by mutableStateOf(false)
 
     // Fires immediately on registration with the current state, then again on
     // every sign-in/sign-out — so `signedIn` needs no separate initialization.
@@ -151,6 +156,11 @@ class MainActivity : ComponentActivity() {
                 // The selected bottom-bar tab (or Allowlist, nested under
                 // Profile). Auth/Onboarding gate in ahead of it below.
                 var current by remember { mutableStateOf(Screen.Home) }
+
+                // Dismissing the Home notification nudge hides it for this
+                // session only; hoisted here (not inside HomeScreen) so a tab
+                // switch doesn't bring it back, while an app relaunch does.
+                var notificationNudgeDismissed by remember { mutableStateOf(false) }
                 val currentScreen = when {
                     !signedIn -> Screen.Auth
                     // Usage Access is a hard requirement, so revoking it later
@@ -218,7 +228,16 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onFinish = { onboardingComplete = true }
                                     )
-                                    Screen.Home -> HomeScreen()
+                                    Screen.Home -> HomeScreen(
+                                        // Only relevant on API 33+, where notifications
+                                        // are a runtime grant that can be declined.
+                                        showNotificationNudge = notificationPermissionNeeded() &&
+                                            !notificationsGranted && !notificationNudgeDismissed,
+                                        onOpenNotificationSettings = {
+                                            startActivity(appNotificationSettingsIntent(this@MainActivity))
+                                        },
+                                        onDismissNudge = { notificationNudgeDismissed = true }
+                                    )
                                     Screen.Feed -> FeedScreen()
                                     Screen.Friends -> FriendsScreen()
                                     Screen.Groups -> GroupsScreen()
@@ -252,6 +271,7 @@ class MainActivity : ComponentActivity() {
         // is the only place we learn about it.
         usageAccessGranted = hasUsageAccessPermission(this)
         onboardingComplete = isOnboardingComplete(this)
+        notificationsGranted = hasNotificationPermission(this)
     }
 
     override fun onDestroy() {
@@ -313,7 +333,11 @@ private fun LockInBottomBar(current: Screen, onSelect: (Screen) -> Unit) {
 }
 
 @Composable
-private fun HomeScreen() {
+private fun HomeScreen(
+    showNotificationNudge: Boolean,
+    onOpenNotificationSettings: () -> Unit,
+    onDismissNudge: () -> Unit,
+) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
 
@@ -325,6 +349,10 @@ private fun HomeScreen() {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (showNotificationNudge) {
+            NotificationNudge(onEnable = onOpenNotificationSettings, onDismiss = onDismissNudge)
+            Spacer(modifier = Modifier.height(24.dp))
+        }
         SessionControls()
         Spacer(modifier = Modifier.height(36.dp))
         Text(
@@ -360,6 +388,63 @@ private fun HomeScreen() {
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
+        }
+    }
+}
+
+// Shown on Home only when notifications were declined (during onboarding or
+// later) on API 33+. The whole point of a group lock-in is hearing when someone
+// slips, so a silent decline is worth one honest, dismissible reminder. Tapping
+// "Turn on alerts" deep-links to system settings rather than re-firing the
+// runtime dialog, which Android suppresses after a denial.
+@Composable
+private fun NotificationNudge(onEnable: () -> Unit, onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(20.dp))
+            .padding(start = 16.dp, top = 12.dp, end = 6.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Notifications,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Notifications are off",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "You won't hear when your group breaks. Turn alerts on to stay in the loop.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+            )
+            TextButton(
+                onClick = onEnable,
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                Text(
+                    text = "Turn on alerts",
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "Dismiss",
+                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
