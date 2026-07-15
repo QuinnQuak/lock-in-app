@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. Update this file after each meaningful milestone.
 
-## Status: Stages 0–5 complete + onboarding; group lock-ins reworked into Discord-style servers + live lobbies
+## Status: Stages 0–5 complete + onboarding; group lock-ins reworked into Discord-style servers + live lobbies; Stage 6 🚧 (step 1 of 6 done)
 
 Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -99,6 +99,11 @@ liveStatus/muteRequests/muteApprovals (presence via the tag, not a subcollection
 - **Step 4 — cleanup.** Dead/ended lobbies are hidden and best-effort `closeLobby`'d once; verified
   the leftover "Round over" lobby vanished from the room and its doc was deleted server-side (REST).
 
+### Stage 6 — Cute Redesign & Mascot Economy 🚧 (step 1 of 6 done)
+Build order decided 2026-07-15 (see `CONTEXT.md`): 1) palette + typography, 2) theme picker, 3) mascot static states, 4) Sparkles currency, 5) trophy case, 6) Shop.
+
+**Step 1 — Palette + typography ✅ (verified on emulator, light + dark).** `Theme.kt` rewritten: **Bubblegum** palette (pink `#FF4F8B` primary, orange `#FF9142` secondary, cherry-red `#E63950` error/alert, blush `#FFF3F6` background, light + dark variants) replaces amber/green; **Fredoka** (headers/hero numbers/buttons/nav) + **Nunito** (body/chat/feed rows) replace Quicksand, both bundled as variable-font `.ttf`s from `google/fonts` (OFL) via `curl`; a new Material3 `Shapes` (10/14/20/26/34.dp) plus ~20 hardcoded `RoundedCornerShape(...)` literals across 9 files bumped +6dp (pill shapes at `RoundedCornerShape(50)` left alone — those are percent-based, not dp). `quicksand.ttf` deleted, `THIRD_PARTY_LICENSES.txt` updated to Fredoka+Nunito. Verified: `./gradlew assembleDebug` clean build; installed on emulator; Home + Profile screenshots confirm pink/blush palette, Fredoka headers, Nunito body, rounded cards in light mode; toggling `cmd uimode night yes` confirmed the deep-plum dark variant. No debug logging added (pure visual change, nothing to log).
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode defeats detection.
@@ -109,11 +114,12 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 - `currentForegroundApp()`'s 1-hour lookback window is a stopgap, not the technically correct fix.
 - **Pressing "Stop Lock-In" silences a sticky alarm**, since the service tears down with it. So the alarm is now hard to silence *within* a session, but ending the session is still a free escape hatch. Natural Stage 6 (Anti-Cheat Hardening) target.
 
-## Design Redecision (2026-07-15) — not yet built
-The warm amber/green palette (Stage 5 step 6, committed `3fcd7b5`) has already been **superseded by a new decision**, same day: a cute, bold, character-driven direction — "Bubblegum" pink/orange palette + a light/dark + multi-theme picker, Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories unlocked via achievements (trophy case) and a new passively-earned Sparkles currency (Shop). Full spec in `CONTEXT.md`'s Design Direction. This is now its own build stage (see below) — nothing here is implemented yet, and `ARCHITECTURE.md`'s "Visual Design (implemented)" section still describes the live amber/green build until it is.
+## Design Redecision (2026-07-15) — Stage 6, step 1 now built
+The warm amber/green palette (Stage 5 step 6, committed `3fcd7b5`) was **superseded by a new decision**, same day: a cute, bold, character-driven direction — "Bubblegum" pink/orange palette + a light/dark + multi-theme picker, Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories unlocked via achievements (trophy case) and a new passively-earned Sparkles currency (Shop). Full spec in `CONTEXT.md`'s Design Direction. This is its own build stage (see above) — the palette + typography piece is now implemented and `ARCHITECTURE.md`'s "Visual Design" section reflects it; theme picker/mascot/economy are still queued.
 
 ## What's Next
-1. **Stage 5 and the group-lobby rework are complete.** The Staged Build Plan gained a new **Stage 6 — Cute Redesign & Mascot Economy** (see above), pushing the adversarial pass to **Stage 7 — Anti-Cheat Hardening** (force-close leaving a phantom session, airplane mode, revoking permissions mid-session, and the "Stop Lock-In silences a sticky alarm" escape hatch) and portfolio packaging to **Stage 8**. The 2-min alarm cap and a timed session auto-stop are now both runtime-verified (via the sticky-alarm and shared-round tests), closing two Stage-4 loose ends.
+1. **Stage 6, step 2 — theme picker (Peach/Berry/Sunset).** Next up in the decided build order (see `CONTEXT.md` and `NEXT_SESSION.md`).
 2. Two loose ends worth folding into Stage 7 (Anti-Cheat Hardening): the 2-min alarm cap is still only logic-reviewed (never runtime-waited), and `currentForegroundApp()`'s lookback window should query from session start.
-3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`; the notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) committed as `1de6fa3`; the group-lobby rework (`ChatStore.kt`, `LobbyStore.kt`, `GroupDetailScreen.kt` + docs) committed as `9b8279f`.
+3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`; the notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) committed as `1de6fa3`; the group-lobby rework (`ChatStore.kt`, `LobbyStore.kt`, `GroupDetailScreen.kt` + docs) committed as `9b8279f`; Stage 6 step 1 (Bubblegum palette + Fredoka/Nunito) not yet committed as of this doc update.
 4. **GitHub remote added (2026-07-15):** `origin` → `QuinnQuak/lock-in-app` (public), all history pushed once. Quinn then asked to pause pushing and stay local for now — commit as usual, don't `git push` again without an explicit ask. See `ARCHITECTURE.md`'s Source Control section.
+5. Stage 6 step 1 committed as `fda078c` (docs recorded in a follow-up commit).

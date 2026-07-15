@@ -18,12 +18,16 @@ locally as usual.
 
 ## What's next
 **Stage 6 — Cute Redesign & Mascot Economy** (renumbered 2026-07-15 — this used to be Anti-Cheat
-Hardening; that's now Stage 7). Same-day design redecision, superseding the amber/green palette that
-had *just* shipped in Stage 5 step 6: a "Bubblegum" pink/orange palette + light/dark + a curated
-theme picker (Bubblegum/Peach/Berry/Sunset), Fredoka/Nunito typography, and a reactive mascot
-("blob buddy") with equippable accessories — a trophy-case unlock per achievement tier, plus a
-broader Shop bought with a new passively-earned **Sparkles** currency (1/minute locked in). Full
-spec is in `CONTEXT.md`'s Design Direction; nothing in this stage is built yet.
+Hardening; that's now Stage 7), **in progress: step 1 of 6 done.** Same-day design redecision,
+superseding the amber/green palette that had *just* shipped in Stage 5 step 6: a "Bubblegum"
+pink/orange palette + light/dark + a curated theme picker (Bubblegum/Peach/Berry/Sunset),
+Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories — a
+trophy-case unlock per achievement tier, plus a broader Shop bought with a new passively-earned
+**Sparkles** currency (1/minute locked in). Full spec is in `CONTEXT.md`'s Design Direction.
+
+**Step 1 (palette + typography) is built and emulator-verified** — see `PROGRESS.md`. Executing the
+remaining 5 steps in sequence per Quinn's ask (2026-07-15): stop only for bugs/issues, otherwise keep
+going through steps 2–6 without pausing for confirmation between them.
 
 **Stage 7 — Anti-Cheat Hardening** (was Stage 6). The adversarial pass on Stage 1's detection core: the phantom "active" session left by a force-close, airplane mode defeating detection, revoking Usage Access mid-session, and the "Stop Lock-In silences a sticky alarm" free escape hatch. Fold in the two loose ends below.
 
@@ -40,7 +44,7 @@ Friend-wide auto-posting feed; streak = a day with a lock-in ≥ a per-user, fri
 - **Typography:** Fredoka (500–700, headers/hero numbers/buttons/nav) + Nunito (400–700, body/chat/feed rows), replacing Quicksand; corner radii bumped app-wide.
 - **Mascot "blob buddy":** reactive companion, appears everywhere (Home hero, Profile, session status, loading states) — idle/breathing while compliant, happy bounce+sparkle on completion, droop+tears on break, sleeping "zzz" when idle; recolors to the active theme.
 - **Mascot accessories:** trophy case (1 signature accessory per achievement tier, auto-granted, never purchasable — reuses the existing 7-tier achievement system) + a broader Shop bought with **Sparkles** (new currency, 1/minute locked in, solo or group).
-- Build order not yet decided with Quinn — first thing to nail down when picking this stage up.
+- **Build order (decided 2026-07-15):** 1) palette + typography swap ✅ done, 2) theme picker (Peach/Berry/Sunset), 3) mascot "blob buddy" static states (no economy), 4) Sparkles currency (accrual + display only), 5) trophy case (auto-granted, reuses `AchievementsStore`), 6) Shop (spend Sparkles, reuses trophy case's equip/inventory plumbing). Full rationale in `CONTEXT.md`. Next up: step 2.
 
 ## Test fixtures (see `ARCHITECTURE.md` for full detail)
 - Emulator is signed in as `mutebreaker@lockin.test` / `MuteTest2026`, with 3 backdated 30-min sessions faking a 🔥3 streak.
