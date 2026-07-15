@@ -66,7 +66,7 @@ Explicitly deferred past MVP: broader social feed, streaks/kudos, gamified profi
 - **Stage 2 — Accounts & Cloud Sync:** Firebase Auth + Firestore. Persist user profiles, allowlists, and session history tied to a real account.
 - **Stage 3 — Friends & Visible Allowlists:** Friend request system; allowlists become visible to friends.
 - **Stage 4 — Group Lock-Ins:** Create/join group sessions, sync session state in real time via Firestore, alarm (local) + break alert (group) on a break.
-- **Stage 5 — Social Feed & Gamification:** Post-session achievements, streaks, kudos/reactions, full pastel Finch/Notion visual polish.
+- **Stage 5 — Social Feed & Gamification:** Post-session achievements, streaks, kudos/reactions, and a full visual polish pass (the warm/energetic redesign — see Design Direction).
 - **Stage 6 — Anti-Cheat Hardening:** Adversarial pass on Stage 1's detection logic — force-close, disabling battery optimization exceptions, airplane mode, etc.
 - **Stage 7 — Polish & Portfolio Packaging:** Onboarding flow, README, demo video/screenshots for portfolio presentation.
 
