@@ -16,18 +16,25 @@ also added (`origin` → `QuinnQuak/lock-in-app`, public) and pushed once — bu
 without an explicit ask**; Quinn asked to pause pushing and stay local for now. Keep committing
 locally as usual.
 
-## What's next
+## What's next — RESUME POINT (Stage 6 step 4, Sparkles currency)
 **Stage 6 — Cute Redesign & Mascot Economy** (renumbered 2026-07-15 — this used to be Anti-Cheat
-Hardening; that's now Stage 7), **in progress: 2 of 6 steps done.** Same-day design redecision,
-superseding the amber/green palette that had *just* shipped in Stage 5 step 6: a "Bubblegum"
-pink/orange palette + light/dark + a curated theme picker (Bubblegum/Peach/Berry/Sunset),
-Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories — a
-trophy-case unlock per achievement tier, plus a broader Shop bought with a new passively-earned
-**Sparkles** currency (1/minute locked in). Full spec is in `CONTEXT.md`'s Design Direction.
+Hardening; that's now Stage 7). Same-day design redecision, superseding the amber/green palette that
+had *just* shipped in Stage 5 step 6: a "Bubblegum" pink/orange palette + light/dark + a curated
+theme picker (Bubblegum/Peach/Berry/Sunset), Fredoka/Nunito typography, and a reactive mascot
+("blob buddy") with equippable accessories — a trophy-case unlock per achievement tier, plus a
+broader Shop bought with a new passively-earned **Sparkles** currency (1/minute locked in). Full
+spec is in `CONTEXT.md`'s Design Direction.
 
-**Steps 1–2 (palette + typography, theme picker) are built and emulator-verified** — see
-`PROGRESS.md`. Executing the remaining 4 steps in sequence per Quinn's ask (2026-07-15): stop only
-for bugs/issues, otherwise keep going through steps 3–6 without pausing for confirmation between them.
+**Steps 1–3 (palette + typography, theme picker, mascot) are built, verified, and committed**
+(`fda078c`, `0b41eaa`, `112deee`) — see `PROGRESS.md`. The mascot's four moods (SLEEPING/IDLE/HAPPY/
+BREAK) are all confirmed on the emulator; BREAK was caught via a `Chat Test` group lobby's sticky
+alarm (a solo break self-clears on refocus).
+
+**Step 4 (Sparkles currency) is next.** A new passively-earned currency: 1 Sparkle per minute
+locked in (solo or group), accrual + display only for now — no spending yet (that's step 6's Shop).
+Then step 5 (trophy case, auto-granted accessories reusing `AchievementsStore`) and step 6 (Shop).
+Per Quinn's ask (2026-07-15) steps 4–6 were meant to run back-to-back stopping only for bugs — **but
+Quinn asked to pause after step 3, so confirm before starting step 4.**
 
 **Stage 7 — Anti-Cheat Hardening** (was Stage 6). The adversarial pass on Stage 1's detection core: the phantom "active" session left by a force-close, airplane mode defeating detection, revoking Usage Access mid-session, and the "Stop Lock-In silences a sticky alarm" free escape hatch. Fold in the two loose ends below.
 
@@ -44,7 +51,7 @@ Friend-wide auto-posting feed; streak = a day with a lock-in ≥ a per-user, fri
 - **Typography:** Fredoka (500–700, headers/hero numbers/buttons/nav) + Nunito (400–700, body/chat/feed rows), replacing Quicksand; corner radii bumped app-wide.
 - **Mascot "blob buddy":** reactive companion, appears everywhere (Home hero, Profile, session status, loading states) — idle/breathing while compliant, happy bounce+sparkle on completion, droop+tears on break, sleeping "zzz" when idle; recolors to the active theme.
 - **Mascot accessories:** trophy case (1 signature accessory per achievement tier, auto-granted, never purchasable — reuses the existing 7-tier achievement system) + a broader Shop bought with **Sparkles** (new currency, 1/minute locked in, solo or group).
-- **Build order (decided 2026-07-15):** 1) palette + typography swap ✅ done, 2) theme picker (Peach/Berry/Sunset) ✅ done, 3) mascot "blob buddy" static states (no economy), 4) Sparkles currency (accrual + display only), 5) trophy case (auto-granted, reuses `AchievementsStore`), 6) Shop (spend Sparkles, reuses trophy case's equip/inventory plumbing). Full rationale in `CONTEXT.md`. Next up: step 3.
+- **Build order (decided 2026-07-15):** 1) palette + typography swap ✅ done, 2) theme picker (Peach/Berry/Sunset) ✅ done, 3) mascot "blob buddy" static states ✅ done (all 4 moods verified, committed `112deee`), 4) Sparkles currency (accrual + display only) — next, 5) trophy case (auto-granted, reuses `AchievementsStore`), 6) Shop (spend Sparkles, reuses trophy case's equip/inventory plumbing). Full rationale in `CONTEXT.md`.
 
 ## Test fixtures (see `ARCHITECTURE.md` for full detail)
 - Emulator is signed in as `mutebreaker@lockin.test` / `MuteTest2026`, with 3 backdated 30-min sessions faking a 🔥3 streak.
