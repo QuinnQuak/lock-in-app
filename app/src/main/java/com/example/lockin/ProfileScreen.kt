@@ -90,11 +90,15 @@ fun ProfileScreen(
     val loadedThreshold = threshold
     if (loadedStreak == null || loadedThreshold == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 2.dp,
-                modifier = Modifier.width(28.dp)
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Mascot(mood = MascotMood.IDLE, size = 64.dp)
+                Spacer(Modifier.height(12.dp))
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.width(28.dp)
+                )
+            }
         }
         return
     }
@@ -106,6 +110,8 @@ fun ProfileScreen(
             .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Mascot(mood = MascotMood.IDLE, size = 80.dp)
+        Spacer(Modifier.height(12.dp))
         Text(
             text = myName,
             style = MaterialTheme.typography.headlineSmall,

@@ -70,11 +70,15 @@ fun FeedScreen() {
     val list = items
     when {
         list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(28.dp)
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Mascot(mood = MascotMood.IDLE, size = 64.dp)
+                Spacer(Modifier.height(12.dp))
+                CircularProgressIndicator(
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
         list.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(

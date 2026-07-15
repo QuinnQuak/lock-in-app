@@ -491,6 +491,17 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
     val context = LocalContext.current
     var session by remember { mutableStateOf(loadSession(context)) }
     var elapsedSeconds by remember { mutableStateOf(0L) }
+    // A brief happy beat right after a clean stop (no break in progress) --
+    // the mascot's "completed a lock-in" reaction from CONTEXT.md's Design
+    // Direction. Self-resets so it doesn't linger once Home reflects no
+    // active session.
+    var justCompleted by remember { mutableStateOf(false) }
+    LaunchedEffect(justCompleted) {
+        if (justCompleted) {
+            delay(2500)
+            justCompleted = false
+        }
+    }
 
     LaunchedEffect(session.isActive, session.startTimeMillis) {
         while (session.isActive) {
@@ -513,6 +524,8 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
             val isAlert = isBreak || isAlarmSounding
             val statusColor = if (isAlert) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
 
+            Mascot(mood = if (isAlert) MascotMood.BREAK else MascotMood.IDLE, size = 84.dp)
+            Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = when {
                     isBreak -> "BREAK DETECTED"
@@ -533,6 +546,9 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
             Spacer(modifier = Modifier.height(20.dp))
             PressableButton(
                 onClick = {
+                    // A stop taken while alert (break/alarm) isn't a clean
+                    // finish, so it doesn't earn the happy mascot beat.
+                    justCompleted = !isAlert
                     stopLockInSession(context)
                     session = loadSession(context)
                 },
@@ -557,6 +573,8 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
                 }
             }
         } else {
+            Mascot(mood = if (justCompleted) MascotMood.HAPPY else MascotMood.SLEEPING, size = 84.dp)
+            Spacer(modifier = Modifier.height(12.dp))
             // Home starts a solo lock-in only; group lock-ins are joined from
             // the group room. Notifications were primed during onboarding, so
             // starting no longer detours through a permission dialog.
@@ -564,6 +582,7 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
                 onClick = {
                     startLockInSession(context)
                     session = loadSession(context)
+                    justCompleted = false
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 icon = Icons.Rounded.Lock,
