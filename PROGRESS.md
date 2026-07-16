@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: Steps 3 (tabs) + 4 (Members tab controls) + 5 (group settings sheet) done, owner-path emulator-verified; Steps 1 (presence) & 2 (group roles/management backend) code-complete; admin-initiated writes, self-leave, and delete blocked on a `firestore.rules` deploy. Next: Steps 6–7 (friends removeFriend + friends UI). Turnkey plan in `STAGE8_PLAN.md`.
+## Status: Stages 0–8 complete (see archive / below). **Stage 8 (Social Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified 2026-07-16** (rules shipped; presence, admin edit, and Members-dot-to-presence all verified live). **Stage 9 (Polish & Portfolio Packaging) in progress** — polish + stability, recruiter audience, no plan doc (tracked in the Stage 9 section below). Stability sweep done (no crashes); roster self-name (#2) and Home idle-layout / CURRENTLY-OPEN (#4/#5) fixes landed + emulator-verified.
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -172,6 +172,46 @@ row-expander); and **Remove friend** behind an `AlertDialog` confirm. **Verified
 to preserve the fixture). **Deploy-gated:** live presence dots (presence reads are denied until the rules ship,
 so every friend reads Idle for now) and the reciprocal-side unfriend delete. **⏭️ Stage 8 feature work (steps
 1–7) is now complete — only the rules deploy + its gated verifications remain to close the stage.**
+
+**✅ STAGE 8 COMPLETE — deploy gate cleared + Members dot wired (2026-07-16, commit `b992f8f`).**
+`firestore.rules` released to `lockin-app-sg` (`firebase deploy --only firestore:rules`; already-up-to-date
+compile + release, so a prior session had shipped it). Deploy-gated paths now verified live via `tools/fb.py`:
+**presence** write (owner) + cross-user read (feedtester reads mutebreaker) — the old `PERMISSION_DENIED` is
+gone; **admin group edit** — `Feed Tester` (non-owner admin) renamed `Chat Test` with `ownerUid`/`adminUids`
+preserved, then restored. **Members roster dot re-wired to presence:** the Members tab now reads the app-wide
+`presence/{uid}` doc (listener keyed on `group.memberUids`; shared `presenceDotColor`/`presenceLabel` extracted
+to `internal` in `FriendsScreen.kt` so the group + friends rosters can't drift) instead of in-group
+`liveStatus`. Emulator-verified on `Chat Test` Members tab: a member with no presence doc shows grey + "Idle",
+and `Feed Tester` **flipped live to "Locked in"** the moment a fresh LOCKED_IN stamp was written over REST. The
+header "N locked in" still reflects in-*group* lobby participation — intentionally distinct from app-wide
+presence. **Left unexercised on purpose (destructive to standing fixtures):** member self-leave, reciprocal
+unfriend delete, real group delete — all share the now-deployed ruleset. **⏭️ NEXT: Stage 9 (Polish &
+Portfolio Packaging)** — no plan doc yet; scope with Quinn.
+
+## Stage 9 — Polish & Portfolio Packaging 🚧 (in progress; no plan doc — tracked here per Quinn 2026-07-16)
+Scope locked with Quinn 2026-07-16: **visual/UX polish + stability**, audience **recruiters/job apps** (portfolio
+screenshots deferred as an optional tail). Quinn drives, agent reports back — no `STAGE9_PLAN.md`.
+
+**Stability sweep ✅ (2026-07-16, emulator).** Drove every surface — Home, Feed, Friends, Groups list, GroupDetail
+(Lobbies·Chat·Members), Profile (incl. achievements grid), friend profile sheet, chat, and a full solo lock-in
+start→stop. **No crashes, no PERMISSION_DENIED surfaced to UI, no stuck spinners.** Punch list (ranked by demo
+impact): 1) no end-of-session summary/payoff; 2) roster showed "Member (you)"; 3) achievements loading is a tiny
+near-invisible dot; 4) Home dead space above mascot; 5) idle "CURRENTLY OPEN" is meaningless; 6) chat has no
+timestamps; 7) feed didn't surface a friend post (fixture staleness, not a bug). Quinn picked **#2 + #4/#5** first.
+
+**Fix: roster self-name (#2) ✅ (emulator-verified).** Root cause: the current user (`mutebreaker`) had **no
+`userSearch` doc at all** (404) — an old fixture predating the userSearch signup flow — so `fetchGroupMemberProfiles`
+fell back to the `"Member"` placeholder. Two-part fix: (a) **code hardening** — `GroupStore` "Member" fallback
+promoted to `UNRESOLVED_MEMBER_NAME`; `MemberRow` now takes `myDisplayName` (auth `displayName`) and for the self
+row prefers auth name → resolved userSearch name → `"You"`, so a user with a missing/blank name never sees
+"Member (you)" again. (b) **fixture backfill** — created `userSearch/J88TDlaV6…` + mirrored `displayName:"Quinn"`
+into the `users/` doc (name chosen by Quinn). Roster now reads **"Quinn (you)"**; other users also resolve the name.
+
+**Fix: Home idle layout + CURRENTLY OPEN (#4/#5) ✅ (emulator-verified).** One change closes both: `HomeScreen` now
+renders the "CURRENTLY OPEN" foreground-app chip **only while a lock-in is active** (`sessionActive` polled 1s
+alongside `foregroundApp`). Idle Home is now a clean, centered mascot + Start hero (the chip was pulling the
+centered block up, causing the asymmetric dead space); during a lock-in the chip returns where it's meaningful
+(confirms the allowlisted app in focus). Verified: hidden idle, restored on start, gone again on stop.
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:

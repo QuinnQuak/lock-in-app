@@ -437,10 +437,16 @@ private fun HomeScreen(
 ) {
     val context = LocalContext.current
     var foregroundApp by remember { mutableStateOf<String?>(null) }
+    // "Currently open" only means something during a lock-in (it confirms the
+    // allowlisted app you're in). When idle it would just echo whatever app is
+    // foreground, so we hide it -- which also leaves Home a clean, balanced
+    // mascot + Start hero instead of a chip pulling the block off-center.
+    var sessionActive by remember { mutableStateOf(loadSession(context).isActive) }
 
     LaunchedEffect(Unit) {
         while (true) {
             foregroundApp = currentForegroundApp(context)
+            sessionActive = loadSession(context).isActive
             delay(1000)
         }
     }
@@ -455,39 +461,41 @@ private fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
         SessionControls(onOpenGroup = onOpenGroup)
-        Spacer(modifier = Modifier.height(36.dp))
-        Text(
-            text = "CURRENTLY OPEN",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Box(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(30.dp))
-                .padding(horizontal = 24.dp, vertical = 14.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val pkg = foregroundApp
-                if (pkg != null) {
-                    val icon = remember(pkg) { appIconFor(context, pkg) }
-                    if (icon != null) {
-                        Image(
-                            bitmap = remember(pkg) { icon.toBitmap().asImageBitmap() },
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
+        if (sessionActive) {
+            Spacer(modifier = Modifier.height(36.dp))
+            Text(
+                text = "CURRENTLY OPEN",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(30.dp))
+                    .padding(horizontal = 24.dp, vertical = 14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val pkg = foregroundApp
+                    if (pkg != null) {
+                        val icon = remember(pkg) { appIconFor(context, pkg) }
+                        if (icon != null) {
+                            Image(
+                                bitmap = remember(pkg) { icon.toBitmap().asImageBitmap() },
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                        }
                     }
+                    Text(
+                        text = pkg?.let { appLabelFor(context, it) } ?: "…",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                Text(
-                    text = pkg?.let { appLabelFor(context, it) } ?: "…",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
             }
         }
     }

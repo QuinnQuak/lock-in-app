@@ -44,6 +44,9 @@ fun createGroup(
 
 data class GroupMemberProfile(val uid: String, val displayName: String)
 
+/** Placeholder used when a member's public name can't be resolved from userSearch. */
+const val UNRESOLVED_MEMBER_NAME = "Member"
+
 /**
  * Resolves a group's member uids to display names via the public userSearch
  * directory (readable by any signed-in user per firestore.rules). One-time
@@ -65,7 +68,7 @@ fun fetchGroupMemberProfiles(uids: List<String>, onResult: (List<GroupMemberProf
                 task.result?.getString("displayName")?.takeIf { it.isNotBlank() }?.let { names[uid] = it }
                 remaining--
                 if (remaining == 0) {
-                    onResult(uids.map { GroupMemberProfile(it, names[it] ?: "Member") })
+                    onResult(uids.map { GroupMemberProfile(it, names[it] ?: UNRESOLVED_MEMBER_NAME) })
                 }
             }
     }

@@ -430,6 +430,7 @@ fun GroupDetailScreen(group: LockInGroup) {
                             isOwner = targetIsOwner,
                             isAdmin = targetIsAdmin,
                             isMe = profile.uid == myUid,
+                            myDisplayName = Firebase.auth.currentUser?.displayName?.takeIf { it.isNotBlank() },
                             presence = presence[profile.uid],
                             onClick = if (actionable) ({ actionTarget = profile }) else null
                         )
@@ -493,6 +494,7 @@ private fun MemberRow(
     isOwner: Boolean,
     isAdmin: Boolean,
     isMe: Boolean,
+    myDisplayName: String?,
     presence: UserPresence?,
     onClick: (() -> Unit)?,
 ) {
@@ -514,7 +516,15 @@ private fun MemberRow(
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = if (isMe) "${profile.displayName} (you)" else profile.displayName,
+            // My own row: prefer my auth name, then a resolved userSearch name,
+            // and only ever fall back to "You" -- never the "Member" placeholder.
+            text = if (isMe) {
+                val name = myDisplayName
+                    ?: profile.displayName.takeIf { it != UNRESOLVED_MEMBER_NAME }
+                name?.let { "$it (you)" } ?: "You"
+            } else {
+                profile.displayName
+            },
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground
         )

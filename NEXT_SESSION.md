@@ -9,20 +9,56 @@
 Stages 0–6 complete and emulator-verified (full detail in `docs/archive/STAGES_0-6.md`; one-line
 summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins reworked into
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
-mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
+mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) COMPLETE.** **Stage 8 (Social
+Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified (2026-07-16).** Next is Stage 9.
 
-## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4·5·6·7 ALL built + emulator-verified → only the DEPLOY GATE remains before Stage 8 closes)
+## What's next — RESUME POINT (Stage 9 — Polish & Portfolio Packaging IN PROGRESS; polish + stability, recruiter audience, no plan doc)
 
-**⏭️ Stage 8 feature work is COMPLETE — every step (1–7) is built and the owner/read paths are
-emulator-verified.** The one thing standing between here and "Stage 8 done" is the **rules deploy**:
-Steps 1, 6, 7's presence reads/writes + the reciprocal-unfriend delete, plus steps 2/4/5's admin +
-leave/delete writes, are all deploy-gated on `firestore.rules` shipping to `lockin-app-sg`. On resume:
-run the deploy (thread A below) and tick off the gated verifications — that's the last task. **Steps 6–7
-landed 2026-07-16** (`removeFriend` two-independent-deletes + `FriendProfileSheet`: presence dot/label
-per row, tap→mascot+accessory / 🔥streak-from-activity / focus-hours / allowlist / remove-with-confirm;
-verified live on `Feed Tester` — 🔥0 / 0.4h / no-allowlist / confirm renders). `firestore.rules` gained a
-`friends/{friendUid}` delete clause letting either party end a friendship.
-<!-- prior resume note kept below for the deploy-gate detail -->
+**Stage 9 scope locked with Quinn 2026-07-16:** visual/UX **polish + stability**, audience **recruiters/job
+apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sweep, agent reports back; **no
+`STAGE9_PLAN.md`** — track in `PROGRESS.md` (Stage 9 section) + here.
+
+**✅ Stability sweep done (emulator) — no crashes anywhere.** Punch list, ranked by demo impact:
+1. **No end-of-session payoff** — stopping a lock-in drops silently to Home (mascot briefly sparkles). No "you
+   focused X min · +Y sparkles · streak kept" summary. *(biggest missed moment; not yet done)*
+2. ~~Roster showed "Member (you)"~~ **✅ FIXED + verified** — now "Quinn (you)".
+3. **Achievements loading** is a near-invisible tiny dot before the grid loads (Profile). *(not yet done)*
+4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
+6. **Chat messages have no timestamps** (minor). *(not yet done)*
+7. **Feed didn't surface a friend post** — likely fixture staleness; quick-verify friend posts render. *(not done)*
+
+**✅ Landed this session (uncommitted — commit next):**
+- **#2 roster self-name:** `GroupStore` `UNRESOLVED_MEMBER_NAME` const; `MemberRow(myDisplayName=…)` resolves the
+  self row as auth name → userSearch name → "You" (never "Member"). Fixture: `mutebreaker` had **no `userSearch`
+  doc** — created `userSearch/J88TDlaV6…` + mirrored `displayName:"Quinn"` into `users/`. Roster reads "Quinn (you)".
+- **#4/#5 Home:** `HomeScreen` shows CURRENTLY OPEN **only while `sessionActive`** — idle is a clean centered
+  mascot+Start hero; chip returns during a lock-in. Verified hidden-idle / shown-active / gone-on-stop.
+
+**⏭️ Resume:** offer Quinn the remaining punch-list items (**#1 end-of-session summary** is the highest-value
+next; then #3 achievements loading, #6 chat timestamps, #7 feed verify), or the optional README-screenshots tail.
+Files changed but **not yet committed:** `MainActivity.kt`, `GroupDetailScreen.kt`, `GroupStore.kt` (+ docs).
+
+<details><summary>Stage 8 (COMPLETE) — historical detail</summary>
+
+**✅ STAGE 8 IS DONE (2026-07-16).** Every step (1–7) is built, the `firestore.rules` **deploy gate is
+cleared** (rules released to `lockin-app-sg`), and the previously deploy-gated paths are verified live:
+- **Presence** — owner write + cross-user read confirmed over REST (`presence/{uid}`, PERMISSION_DENIED gone).
+- **Admin group edit** — non-owner admin (`Feed Tester`) renamed `Chat Test`, owner/adminUids preserved; restored.
+- **Members roster dot wired to presence** (commit `b992f8f`) — the Members tab now reads the app-wide
+  `presence/{uid}` doc (same source + shared `presenceDotColor`/`presenceLabel` as the friends list)
+  instead of in-group `liveStatus`. Verified on emulator: idle fallback for a member with no presence
+  doc, and a **live flip to "Locked in"** the instant a fresh LOCKED_IN stamp lands for `Feed Tester`.
+  (Header "N locked in" still tracks in-*group* lobby participation — intentionally distinct from
+  app-wide presence.)
+
+Remaining Stage-8 rule branches (member self-leave, reciprocal-unfriend delete, real group delete) share
+the now-deployed ruleset but were left **unexercised on purpose** — running them is destructive to the
+standing `Chat Test` / mutebreaker↔feedtester fixtures.
+
+**⏭️ NEXT: Stage 9 — Polish & Portfolio Packaging** (was the old Stage 8 before the re-scope). No plan
+doc yet; scope it with Quinn on resume.
+
+<!-- prior resume note kept below for the deploy-gate detail (now historical) -->
 ### (superseded header) Stage 8 — Steps 2·3·4·5 done → Steps 6–7 friends; deploy gate still open
 **Stage 7 is DONE and emulator-verified** (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`, step 4
 verification-only). **Stage 8 was re-scoped from "Polish & Portfolio Packaging" to Social Refinement
@@ -76,8 +112,13 @@ Leave/Delete writes + the member-view render stay **deploy-gated**. **NEXT: Step
 of streak/focus-hours/mascot+accessory, remove-friend with confirm; keep the allowlist view). Step-5 UI is
 not yet committed (last commit `1570ec8` = step 4).
 
+</details>
+
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
-- Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).
+- Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak). **Now has
+  `displayName:"Quinn"`** — backfilled 2026-07-16 into a new `userSearch/J88TDlaV6…` doc + the `users/` doc
+  (it previously had none, which is why rosters showed "Member"). Note: the on-device **auth** `displayName`
+  may still be blank; rosters resolve "Quinn" via `userSearch`.
 - `feedtester@lockin.test` — a mutual friend of mutebreaker with a posted 25-min activity (friend-feed / kudos fixture).
 - Passwords for both live in `tools/creds.json` (gitignored); `tools/fb.py` reads them automatically.
 - **`Chat Test` group** (id `r1hs2AriiJhQYBTLVsvF`, members mutebreaker + feedtester, `muteApprovalCount 1`) — the two-party chat / lobby / mute-approval fixture; second party driven over REST via **`tools/fb.py`** (see `tools/README.md`).
