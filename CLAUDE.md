@@ -3,7 +3,7 @@
 Standing instructions for this project. Read alongside `CONTEXT.md` (why), `ARCHITECTURE.md` (how), `PROGRESS.md` (status), and `NEXT_SESSION.md` (fast start).
 
 ## On a fresh session (start here)
-- **When Quinn opens a new/reset session — especially with just "continue" or "next step" — read `NEXT_SESSION.md` first and resume at its `## What's next — RESUME POINT`.** That doc is the fast-start anchor; it names the current step and links the deeper docs. Only read `PROGRESS.md`/`STAGE7_PLAN.md`/etc. if the resume point calls for that depth. Don't re-read the whole doc set on every reset.
+- **When Quinn opens a new/reset session — especially with just "continue" or "next step" — read `NEXT_SESSION.md` first and resume at its `## What's next — RESUME POINT`.** That doc is the fast-start anchor; it names the current step and links the deeper docs. Only read `PROGRESS.md`/`ARCHITECTURE.md`/etc. if the resume point calls for that depth. Don't re-read the whole doc set on every reset.
 
 ## Always
 - **Address the user as Quinn in every response.**

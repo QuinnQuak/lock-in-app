@@ -1,9 +1,10 @@
 # Next Session Kickoff
 
 > **Read this first on a fresh session, then resume at the RESUME POINT below.** For depth if the step
-> needs it: `STAGE7_PLAN.md` (active-stage spec), `PROGRESS.md` (status log), `ARCHITECTURE.md` (how),
-> `CONTEXT.md` (why), `CLAUDE.md` (working agreements). Completed stages 0–6 live in
-> `docs/archive/STAGES_0-6.md`. This file is the fast-start summary — don't recap finished work here.
+> needs it: `PROGRESS.md` (status log — Stage 9 has no plan doc), `ARCHITECTURE.md` (how), `CONTEXT.md` (why),
+> `CLAUDE.md` (working agreements). Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`; the finished
+> Stage 7 & 8 plan docs are archived alongside (`docs/archive/STAGE7_PLAN.md`, `STAGE8_PLAN.md`). This file is
+> the fast-start summary — don't recap finished work here.
 
 ## Where things stand
 Stages 0–6 complete and emulator-verified (full detail in `docs/archive/STAGES_0-6.md`; one-line
@@ -12,36 +13,54 @@ Discord-style servers + live lobbies, social feed + gamification, and the Bubble
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) COMPLETE.** **Stage 8 (Social
 Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified (2026-07-16).** Next is Stage 9.
 
-## What's next — RESUME POINT (Stage 9 — Polish & Portfolio Packaging; punch list + dark mode DONE, only optional screenshots tail left)
+## What's next — RESUME POINT (Stage 9 COMPLETE — project feature-complete + packaged)
 
-**Stage 9 scope locked with Quinn 2026-07-16:** visual/UX **polish + stability**, audience **recruiters/job
-apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sweep, agent reports back; **no
-`STAGE9_PLAN.md`** — track in `PROGRESS.md` (Stage 9 section) + here.
+**Stage 9 (Polish & Portfolio Packaging) is DONE — and with it the whole staged build.** Scope was locked with
+Quinn 2026-07-16: visual/UX **polish + stability** for a **recruiter/job-app** audience; no plan doc (tracked in
+`PROGRESS.md`'s Stage 9 section). All polish + the packaging tail are finished + emulator-verified.
 
-**✅ Stability sweep done (emulator) — no crashes anywhere.** Punch list, ranked by demo impact:
-1. ~~No end-of-session payoff~~ **✅ FIXED + verified** — clean Stop pops a "Nice work!" summary
-   (time focused · Sparkles · streak + counts/too-short message; mirrors what the service records).
-2. ~~Roster showed "Member (you)"~~ **✅ FIXED + verified** — now "Quinn (you)".
-3. ~~Achievements loading was a near-invisible tiny dot~~ **✅ FIXED + verified** — Profile now shows a pulsing
-   skeleton grid (matches the real 2-column layout) that swaps into the loaded cells with no layout jump.
-4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
-6. ~~Chat messages have no timestamps~~ **✅ FIXED + verified** — each bubble now shows a locale-aware short
-   clock time (12/24h per device), aligned to the sender's side.
-7. ~~Feed didn't surface a friend post~~ **✅ VERIFIED — not a bug** — Feed Tester's 25m post renders (with kudos
-   heart); it just sorts below mutebreaker's more-recent self-posts (feed is newest-first). No code change.
+**✅ Portfolio packaging tail done (2026-07-16):** `README.md` written (detailed, product-forward, demo-GIF hero +
+paired light/dark gallery + a "How the anti-cheat works" section with an honest PoC caveat); `docs/screenshots/`
+holds the clean paired set; `docs/demo.gif` shows idle→start→break→stop; junk feed fixtures tidied; emulator theme
+restored to Dark. Decisions locked with Quinn: detailed / paired light+dark / product-forward / include-demo.
 
-**✅ Commit trail (Stage 9):** `04fab0c` (#2 roster self-name + #4/#5 Home idle layout) · `f6cadb0` (#1 session
-summary dialog) · `12342c6` (#3 achievements skeleton) · `17e8e46` (dark mode) · `7bde752` (#6 chat timestamps) ·
-#7 was verify-only (no code). Full narrative for each in `PROGRESS.md`'s Stage 9 section.
+**⏭️ Nothing queued.** The app is feature-complete and packaged. Open options if Quinn wants more: (a) `git push`
+the packaging commit to `QuinnQuak/lock-in-app` — **remote stays paused, needs an explicit ask**; (b) a real demo
+video (screen recording) to replace the screenshot-sequence GIF; (c) new feature work / a Stage 10 if scoped.
 
-**✅ Dark mode (full in-app toggle + sweep) — DONE & emulator-verified.** Scope picked by Quinn: full. The dark
-palettes already existed (OS-driven only); added `ThemeMode {LIGHT,DARK,SYSTEM}`, a Light/Dark/System selector under
-a new **Appearance** header in Profile, `WindowCompat` status/nav-bar handling, and `ThemeStore` persistence. Swept
-every screen + the session-summary dialog in forced Dark (Bubblegum) — all legible. `Theme.kt`, `ThemeStore.kt`,
-`ProfileScreen.kt`, `MainActivity.kt`.
+<details><summary>Historical — the packaging plan that produced the above</summary>
 
-**⏭️ Resume:** **Stage 9 punch list is fully cleared** (#1–#7 done; dark mode done). What's left is the **optional
-README-screenshots / portfolio-packaging tail** — decide with Quinn whether to do it or call Stage 9 complete.
+**✅ Done this stage (full narrative in `PROGRESS.md`):**
+- **Stability sweep** — drove every surface, no crashes.
+- **Punch list #1–#7 all cleared:** #1 session-summary payoff (`f6cadb0`), #2 roster self-name + #4/#5 Home idle
+  layout (`04fab0c`), #3 achievements loading skeleton (`12342c6`), #6 chat timestamps (`7bde752`), #7 feed
+  friend-post (verify-only, not a bug).
+- **In-app dark mode** (`17e8e46`) — `ThemeMode {LIGHT,DARK,SYSTEM}`, Light/Dark/System selector under a new
+  "Appearance" header in Profile, `WindowCompat` status/nav-bar handling, `ThemeStore` persistence. Swept every
+  screen + the session-summary dialog in forced Dark; Light↔Dark↔System round-trip verified.
+
+### ⏭️ NEXT SESSION — Portfolio Packaging tail (the last Stage 9 item)
+**Goal:** make the public repo (`QuinnQuak/lock-in-app`) recruiter-ready. **No `README.md` exists yet — that's the
+centerpiece.** Suggested order:
+1. **Curate screenshots on the emulator** — a clean set for the README gallery. Candidates: Home (idle + active
+   lock-in), Feed, Group room (Lobbies + Chat), Friends, Profile (achievements + mascot economy), and a couple of
+   **dark-mode** shots. Fixtures already look good (🔥3 streak, 101 Sparkles, `Chat Test` group, `feedtester`
+   friend). Save under `docs/screenshots/` (or `assets/`). *Reusable throwaways from this session are in the
+   scratchpad but should be re-captured clean.*
+2. **Write `README.md`** (centerpiece): one-line pitch + hero shot → problem/what-it-is → feature highlights
+   (solo lock-in **+ the fail-closed anti-cheat detection** as the technically interesting bit, groups/lobbies,
+   social feed + gamification, mascot economy, dark mode) → screenshot gallery → tech stack (Kotlin, Jetpack
+   Compose, Firebase Auth/Firestore, foreground service + `UsageStatsManager`) → architecture pointer
+   (`ARCHITECTURE.md`) → build/run notes (needs your own Firebase project + `google-services.json`).
+3. **Optional:** a short demo GIF/video of a lock-in start → break → alarm → stop.
+4. **Then:** call Stage 9 complete, archive its `PROGRESS.md` narrative to `docs/archive/`, leaving a one-line pointer.
+
+**Decisions to confirm with Quinn at the top of next session** (don't assume): README depth/positioning (concise vs
+detailed); screenshot style (light-only / dark-only / paired light+dark); include a demo GIF or not; how much to
+foreground the anti-cheat engineering vs the cute product design. *(All four decided 2026-07-16 — see the resume
+block above; this plan is now executed.)*
+
+</details>
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

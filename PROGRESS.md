@@ -20,7 +20,7 @@ Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsy
 ## Project infrastructure (2026-07-16, no app-code change)
 Context-efficiency pass on the project itself (not a feature): completed stages 0–6 moved to `docs/archive/STAGES_0-6.md`; env/adb/REST gotchas moved to `docs/archive/GOTCHAS.md`; PROGRESS/NEXT_SESSION/CONTEXT slimmed; CLAUDE.md now mandates surgical append-edits + a "read NEXT_SESSION.md on a fresh session" resume rule. **Verification harness now lives in the repo at `tools/`** (`fb.py` Firebase REST two-party driver — smoke-tested; `adb-helpers.sh` scoped emulator checks; gitignored `creds.json`; see `tools/README.md`) instead of being rebuilt each session. Gradle build cache + parallel enabled. Memory seeded (empty before). `/fewer-permission-prompts` still pending — must be run by Quinn (blocked for the agent).
 
-## Stage 7 — Anti-Cheat Hardening 🚧 (in progress — turnkey plan in `STAGE7_PLAN.md`)
+## Stage 7 — Anti-Cheat Hardening ✅ (COMPLETE — turnkey plan archived at `docs/archive/STAGE7_PLAN.md`)
 The adversarial pass on Stage 1's detection core. Four independently-demoable steps (decisions locked with Quinn 2026-07-15/16, do not re-litigate). Spine: flip detection from **fail-open** to **fail-closed**, made safe by a widened lookback + grace debounce.
 
 **Step 1 — Fail-closed detection ✅ (verified on emulator, committed `7d710b3`).** An unknown foreground (`null`) while the screen is ON is no longer compliant. Three edits: `ComplianceMonitor.evaluateCompliance` dropped its `foregroundApp == null` compliant clause (screen-off stays compliant via `!isScreenOn`); `UsageAccess.currentForegroundApp` gained a defaulted `sessionStartMillis` param and widens its lookback to `min(sessionStartMillis, now − 1h)` — extends earlier for >1h sessions, never narrows below the 1h floor; `LockInService`'s loop distinguishes the *cause* of a screen-on null — a deliberate permission revocation (`!hasUsageAccessPermission`) escalates to BREAK on the **first tick**, any other unknown is held compliant through a grace debounce (`UNKNOWN_GRACE_TICKS = 4`) so a one-tick blip can't false-alarm. No new state/UI/rule; `MainActivity` untouched. See `ARCHITECTURE.md`'s Key Decisions for the full rationale (why widen-not-narrow, why cause-distinction lives in the loop).
@@ -92,11 +92,11 @@ No debug logging kept (temp `Stage7Cap` log stripped; verified via `dumpsys audi
 **Stage 7 COMPLETE** — all four steps done and emulator-verified (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`,
 step 4 verification-only).
 
-## Stage 8 — Social Refinement (Groups & Friends) 🚧 (turnkey plan in `STAGE8_PLAN.md`)
+## Stage 8 — Social Refinement (Groups & Friends) ✅ (COMPLETE — turnkey plan archived at `docs/archive/STAGE8_PLAN.md`)
 Re-scoped from "Polish & Portfolio Packaging" (now Stage 9) at Quinn's request: the group + friends features feel
 incomplete/under-organized. Direction locked with Quinn 2026-07-16 — groups get Discord-like **organization +
 management** (tabbed Lobbies·Chat·Members + a settings sheet; **owner + admin roles**), friends get **remove +
-profile view + live focus status**, and both read a new app-wide **presence** doc. 7 steps in `STAGE8_PLAN.md`.
+profile view + live focus status**, and both read a new app-wide **presence** doc. 7 steps in `docs/archive/STAGE8_PLAN.md`.
 
 **Step 1 — Presence foundation 🚧 (code-complete, NOT yet emulator-verified — blocked on a rules deploy).**
 New `PresenceStore.kt`: a top-level `presence/{uid}` doc (`state` LOCKED_IN/BREAK/IDLE + `displayName` +
@@ -188,9 +188,9 @@ presence. **Left unexercised on purpose (destructive to standing fixtures):** me
 unfriend delete, real group delete — all share the now-deployed ruleset. **⏭️ NEXT: Stage 9 (Polish &
 Portfolio Packaging)** — no plan doc yet; scope with Quinn.
 
-## Stage 9 — Polish & Portfolio Packaging 🚧 (in progress; no plan doc — tracked here per Quinn 2026-07-16)
+## Stage 9 — Polish & Portfolio Packaging ✅ COMPLETE (2026-07-16; no plan doc — tracked here per Quinn 2026-07-16)
 Scope locked with Quinn 2026-07-16: **visual/UX polish + stability**, audience **recruiters/job apps** (portfolio
-screenshots deferred as an optional tail). Quinn drives, agent reports back — no `STAGE9_PLAN.md`.
+screenshots deferred as an optional tail, now done). Quinn drives, agent reports back — no `STAGE9_PLAN.md`.
 
 **Stability sweep ✅ (2026-07-16, emulator).** Drove every surface — Home, Feed, Friends, Groups list, GroupDetail
 (Lobbies·Chat·Members), Profile (incl. achievements grid), friend profile sheet, chat, and a full solo lock-in
@@ -263,6 +263,23 @@ correctly as a **"Feed Tester · Locked in 25m · 1 break · Yesterday"** card w
 `fetchFeed`). The earlier "didn't surface" read was top-of-feed only. No code change; `fetchFeed` + `FeedScreen`
 verified over REST (`users/zfuW…/activity`) and on the emulator. **Stage 9 punch list is fully cleared.**
 
+**Portfolio packaging tail ✅ (2026-07-16) — the last Stage 9 item; Stage 9 (and the build) now COMPLETE.**
+Decisions locked with Quinn: **detailed** README, **paired light+dark** gallery, **product-forward** positioning
+(anti-cheat as supporting depth), **include a demo clip**. Delivered:
+- **`README.md` (new, the centerpiece):** one-line pitch + demo GIF hero → problem → product-forward feature
+  tour (lock-in + mascot, fail-closed anti-cheat, Discord-style groups, social feed, Sparkles economy, dark
+  mode) → paired light/dark gallery → a "How the anti-cheat works" code+prose section (with an honest PoC
+  false-positive/rooted-device caveat, per `CONTEXT.md`) → tech-stack table → `ARCHITECTURE.md`/`CONTEXT.md`
+  pointers → build/run notes (bring-your-own Firebase + `google-services.json`).
+- **`docs/screenshots/` (new):** clean paired light+dark set — Home idle, Home active, Feed, Friends, Group
+  Chat, Group Members (Owner/Admin roles), Profile top/mid/bottom (streak · achievements · mascot economy),
+  plus a `break-detected` shot. Captured on the emulator via `tools/adb-helpers.sh`.
+- **`docs/demo.gif` (new):** idle → Start → LOCK-IN ACTIVE → BREAK DETECTED (mascot panics, red) → stopped.
+  Built from a screenshot sequence with Pillow (no ffmpeg on this machine), ~380px wide, ~150 KB.
+- **Fixture tidy:** deleted ~11 sub-minute throwaway `activity` docs from `mutebreaker`'s feed so the Feed
+  gallery reads as real sessions (2–7 min, group + solo, with breaks) not test noise. Emulator theme restored
+  to Dark after captures. *Not committed — `git push` still paused pending an explicit ask.*
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).
@@ -278,7 +295,7 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 **Closed for group sessions by Stage 7 step 3 (`ec0bd09`):** in a group session, "Stop Lock-In" is disabled while the alarm sounds, so a breaker can't silence the sticky alarm by ending the session (bounded by the 2-min cap). Solo Stop and mid-alarm sign-out remain intentional residuals (see Known Limitations).
 
 ## What's Next
-1. **Stage 7 is COMPLETE** — all four steps done and verified (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`; step 4 verification-only, this commit) — see the Stage 7 section above. **Stage 8 was re-scoped from Polish & Portfolio Packaging to Social Refinement (Groups & Friends)** at Quinn's request (packaging → Stage 9); plan in `STAGE8_PLAN.md`, resume point in `NEXT_SESSION.md`. **Landed 2026-07-16 (uncommitted):** the `GroupDetail` **tab reorg** (Lobbies · Chat · Members + monogram header) and the Members **roster** (`fetchGroupMemberProfiles` via public `userSearch`, live status dot + Owner badge) — pulled ahead of the still-deploy-blocked presence step to fix the "disorganized" complaint; emulator-verified all three tabs. *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — a group session is startable solo by opening a CONCURRENT lobby in-app (you're the live member, so it survives dead-lobby cleanup); no REST-hosted member needed for that path.
+1. **Stage 7 is COMPLETE** — all four steps done and verified (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`; step 4 verification-only, this commit) — see the Stage 7 section above. **Stage 8 was re-scoped from Polish & Portfolio Packaging to Social Refinement (Groups & Friends)** at Quinn's request (packaging → Stage 9); plan in `docs/archive/STAGE8_PLAN.md`, resume point in `NEXT_SESSION.md`. **Landed 2026-07-16 (uncommitted):** the `GroupDetail` **tab reorg** (Lobbies · Chat · Members + monogram header) and the Members **roster** (`fetchGroupMemberProfiles` via public `userSearch`, live status dot + Owner badge) — pulled ahead of the still-deploy-blocked presence step to fix the "disorganized" complaint; emulator-verified all three tabs. *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — a group session is startable solo by opening a CONCURRENT lobby in-app (you're the live member, so it survives dead-lobby cleanup); no REST-hosted member needed for that path.
 2. Loose ends folded into Stage 7: `currentForegroundApp()`'s lookback ✅ addressed in step 1 (widened to session start for >1h sessions); the 2-min alarm cap ✅ runtime-verified in step 4 (`capped=true muteGranted=false` at a temp-lowered cap).
 3. **GitHub remote (2026-07-15):** `origin` → `QuinnQuak/lock-in-app` (public), all history pushed once. Quinn then asked to pause pushing and stay local for now — commit as usual, don't `git push` again without an explicit ask. See `ARCHITECTURE.md`'s Source Control section.
 4. Older commit trail (Stages 5–6) recorded in `docs/archive/STAGES_0-6.md`.
