@@ -25,6 +25,8 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -97,6 +99,10 @@ fun GroupDetailScreen(group: LockInGroup) {
     // whether the add-member picker is showing.
     var actionTarget by remember { mutableStateOf<GroupMemberProfile?>(null) }
     var showAddMember by remember { mutableStateOf(false) }
+
+    // Group settings sheet (rename / threshold / leave / delete). Open to
+    // everyone -- plain members still need Leave.
+    var showSettings by remember { mutableStateOf(false) }
 
     DisposableEffect(group.id) {
         val regs = mutableListOf(
@@ -188,6 +194,14 @@ fun GroupDetailScreen(group: LockInGroup) {
                     style = MaterialTheme.typography.labelMedium,
                     color = if (lockedInNow > 0) MaterialTheme.colorScheme.secondary
                     else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(onClick = { showSettings = true }) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = "Group settings",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -442,6 +456,15 @@ fun GroupDetailScreen(group: LockInGroup) {
                 onDismiss = { showAddMember = false }
             )
         }
+        if (showSettings) {
+            GroupSettingsSheet(
+                group = group,
+                canManage = canManage,
+                iAmOwner = iAmOwner,
+                myUid = myUid,
+                onDismiss = { showSettings = false }
+            )
+        }
     }
 }
 
@@ -635,6 +658,142 @@ private fun AddMemberSheet(
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GroupSettingsSheet(
+    group: LockInGroup,
+    canManage: Boolean,
+    iAmOwner: Boolean,
+    myUid: String?,
+    onDismiss: () -> Unit,
+) {
+    // Local edit state, seeded from the group. Owner/admin edits write straight
+    // through; MainActivity live-sync reflects them back into `group`.
+    var nameDraft by remember { mutableStateOf(group.name) }
+    var threshold by remember { mutableStateOf(group.muteApprovalCount.coerceAtLeast(1)) }
+    // Approvals exclude the breaker, so the ceiling is members − 1.
+    val maxThreshold = (group.memberUids.size - 1).coerceAtLeast(1)
+
+    var showLeaveConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Text(
+                text = "Group settings",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            if (canManage) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Name",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = nameDraft,
+                        onValueChange = { nameDraft = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = { if (nameDraft.isNotBlank()) renameGroup(group.id, nameDraft) {} },
+                        enabled = nameDraft.isNotBlank() && nameDraft.trim() != group.name
+                    ) { Text("Save") }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Mute approvals",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Votes needed to silence a break alarm",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            threshold = (threshold - 1).coerceAtLeast(1)
+                            setMuteThreshold(group.id, threshold) {}
+                        },
+                        enabled = threshold > 1
+                    ) { Text("−") }
+                    Text(
+                        text = "$threshold",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TextButton(
+                        onClick = {
+                            threshold = (threshold + 1).coerceAtMost(maxThreshold)
+                            setMuteThreshold(group.id, threshold) {}
+                        },
+                        enabled = threshold < maxThreshold
+                    ) { Text("+") }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+
+            // Leave: any non-owner member. The owner must transfer or delete.
+            if (iAmOwner) {
+                SheetAction("Delete group", { showDeleteConfirm = true }, destructive = true)
+            } else {
+                SheetAction("Leave group", { showLeaveConfirm = true }, destructive = true)
+            }
+        }
+    }
+
+    if (showLeaveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirm = false },
+            title = { Text("Leave ${group.name}?") },
+            text = { Text("You'll lose access to this group's lobbies and chat. You can be re-added later.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showLeaveConfirm = false
+                    val uid = myUid ?: return@TextButton
+                    leaveGroup(group.id, uid) {}
+                    onDismiss()
+                }) { Text("Leave", fontWeight = FontWeight.SemiBold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete ${group.name}?") },
+            text = { Text("This permanently removes the group, its lobbies, and all messages for everyone. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteConfirm = false
+                    deleteGroup(group.id) {}
+                    onDismiss()
+                }) { Text("Delete", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

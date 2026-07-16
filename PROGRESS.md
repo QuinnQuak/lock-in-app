@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: Steps 3 (tabs) + 4 (Members tab controls, owner-path emulator-verified) done; Steps 1 (presence) & 2 (group roles/management backend) code-complete; admin-initiated writes + self-leave blocked on a `firestore.rules` deploy. Turnkey plan in `STAGE8_PLAN.md`.
+## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: Steps 3 (tabs) + 4 (Members tab controls) + 5 (group settings sheet) done, owner-path emulator-verified; Steps 1 (presence) & 2 (group roles/management backend) code-complete; admin-initiated writes, self-leave, and delete blocked on a `firestore.rules` deploy. Next: Steps 6–7 (friends removeFriend + friends UI). Turnkey plan in `STAGE8_PLAN.md`.
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -139,6 +139,20 @@ badge re-rendered live; both action-sheet variants + the add-member empty-state 
 writes succeed under the *currently-deployed* rules (owner-any-update); **admin-initiated writes, member
 self-leave, and real add/remove/delete stay deploy-gated** with steps 1–2. Left Feed Tester as an admin
 fixture (`adminUids: [zfuW…]`) on `Chat Test` for the post-deploy admin-path check.
+
+**Step 5 — Group settings sheet ✅ (owner-path emulator-verified; leave/delete deploy-gated; 2026-07-16).**
+Pure UI in `GroupDetailScreen.kt`, no backend/rules work (all fns already in `GroupStore`). A gear
+`IconButton` (`Icons.Rounded.Settings`) at the trailing edge of the header Row opens `GroupSettingsSheet`
+(`ModalBottomSheet`), available to everyone: **rename** (owner/admin — `OutlinedTextField` + Save, gated
+`enabled = draft.trim() != group.name`), a **mute-approval stepper** (owner/admin, clamped `1 … members−1`
+per `approvalsFor`), and one destructive row — **Delete group** for the owner, **Leave group** for any
+non-owner member — each behind an `AlertDialog` confirm (pattern from `ProfileScreen.kt`). No owner-transfer
+UI (owner simply can't leave, per locked direction); on success the sheet closes and `MainActivity`'s
+live-sync auto-pops the screen when I'm removed / the group vanishes. **Verified on the emulator as owner
+(mutebreaker) on `Chat Test`:** rename wrote live (`Chat Test`→`Chat Test 2`, confirmed via REST, then
+restored); Save enable/disable gating correct; the threshold stepper's −/+ both correctly disabled at the
+1…1 clamp of a 2-member group; owner sees **Delete**, not Leave. **Deploy-gated** (same rules blocker as
+steps 1–2): member/admin **Leave** and owner **Delete** writes, and the member-view render (non-owner).
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:

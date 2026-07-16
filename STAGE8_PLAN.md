@@ -41,8 +41,37 @@
    MainActivity now live-syncs the open `selectedGroup` off `listenMyGroups` (roster/role/rename edits
    reflect immediately; pops to the list on delete/leave). *Still TODO:* swap the idle dot to true
    presence (step 1, deploy-gated).
-5. **Settings sheet** — rename, mute-threshold stepper, leave (member/admin), delete (owner-only),
-   with confirms on destructive actions.
+5. ✅ **Settings sheet** — DONE (owner-path emulator-verified; leave/delete deploy-gated; 2026-07-16).
+   Built exactly to the prepped plan below: gear `IconButton` in the header Row → `GroupSettingsSheet`
+   (`ModalBottomSheet`) with rename (owner/admin), mute-threshold stepper (owner/admin, clamped
+   `1…members−1`), and one destructive row — Delete (owner) / Leave (non-owner) — each behind an
+   `AlertDialog` confirm. No owner-transfer UI. **Verified as owner on `Chat Test`:** rename wrote live
+   (`Chat Test`→`Chat Test 2`→restored via REST), Save enable/disable + threshold-clamp-disabled (2-member
+   group) render correct, owner sees Delete not Leave. **Deploy-gated:** Leave/Delete writes + member-view
+   render. Original prepped build order (kept for reference):
+   1. **Entry point (Quinn-approved):** gear `IconButton` (`Icons.Rounded.Settings`) at the trailing
+      edge of the header `Row` (~L164–193, right-align with `Spacer(Modifier.weight(1f))`) →
+      `showSettings = true`. Open to *everyone* (plain members need Leave). New state var beside
+      `showAddMember` (~L99): `var showSettings by remember { mutableStateOf(false) }`.
+   2. **Host `GroupSettingsSheet`** in the sheet block (~L414–444), gated by `showSettings`.
+   3. **`GroupSettingsSheet` (`ModalBottomSheet`)** — reuse existing idioms in-file:
+      - **Rename** (owner/admin = `canManage`): inline `OutlinedTextField` prefilled `group.name` + Save
+        → `renameGroup`. Copy OTF style from the chat composer.
+      - **Mute-threshold stepper** (owner/admin): −/+ row copied verbatim from `LobbyCreatePanel`
+        (~L815–829) → `setMuteThreshold`. Clamp **1 … memberUids.size − 1** (approvals exclude the
+        breaker, per `approvalsFor`).
+      - **Leave group** (any non-owner member, destructive) → `leaveGroup`. Owner is blocked — show
+        "Transfer or delete first" instead.
+      - **Delete group** (owner only, destructive) → `deleteGroup`.
+      Reuse `SheetAction` for rows; owner/admin gating via `canManage`/`iAmOwner` (already computed).
+   4. **Destructive confirms:** reuse the `AlertDialog` pattern from `ProfileScreen.kt:396` for Leave +
+      Delete. On success `showSettings = false`; `MainActivity` live-sync (`MainActivity.kt:190–197`)
+      auto-pops GroupDetail→Groups when I'm removed / the doc vanishes — no manual nav.
+   5. **Scope guard:** no owner-transfer UI (owner simply can't leave — matches locked direction).
+   **Verification reality (deploy gate):** under CURRENTLY-DEPLOYED rules only **owner** writes land
+   (as with step-4 promote/demote), so verify **owner rename + owner threshold** live now; **Leave
+   (member/admin) + Delete are deploy-gated** — verify in the post-`firebase login` batch. Build +
+   install + emulator-verify owner paths, then note the gated ones honestly.
 6. **Friends backend** — `removeFriend` (deletes both friendship docs).
 7. **Friends UI** — presence dot + status label per friend, tap → profile view (streak / focus hours /
    mascot+accessory), remove-friend with confirm. Keep the allowlist view.

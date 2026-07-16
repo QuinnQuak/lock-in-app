@@ -11,7 +11,7 @@ summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins r
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
 
-## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4 done, Steps 1/2/4 admin-paths deploy-gated)
+## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4·5 done → NEXT: Steps 6–7 friends; deploy gate still open)
 **Stage 7 is DONE and emulator-verified** (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`, step 4
 verification-only). **Stage 8 was re-scoped from "Polish & Portfolio Packaging" to Social Refinement
 (Groups & Friends)** at Quinn's request — packaging is now Stage 9. Direction locked with Quinn
@@ -53,10 +53,16 @@ Deploy is now agent-runnable (portable Node + `firebase-tools` installed) **pend
 rules), then verify: presence writes+reads (start a solo lock-in as `mutebreaker`, then
 `tools/fb.py get presence/J88TDlaV6Wf80RRxP94iDjXZlCH3`) **and** a group-management write (e.g.
 `renameGroup` on `Chat Test` as owner, an admin edit, a member self-leave); wire the Members dot to
-presence; **or** (B) continue unblocked — **Step 5** group settings sheet (rename, mute-threshold
-stepper, leave for member/admin, delete owner-only, with destructive-action confirms), then **Steps 6–7**
-(friends backend `removeFriend` + friends UI: presence dot, tap→profile, remove-friend). Step-4 Members
-UI is committed as part of the step-4 commit.
+presence; **or** (B) continue unblocked — **Steps 6–7 (friends)**. **✅ Step 5 (group settings sheet) is
+DONE & owner-path emulator-verified (2026-07-16, uncommitted).** Gear `IconButton` in the header Row →
+`GroupSettingsSheet` (`ModalBottomSheet`): rename (owner/admin) / mute-threshold stepper (clamp
+1…members−1) / Delete (owner) or Leave (non-owner), each destructive action behind an `AlertDialog`.
+Verified as owner on `Chat Test`: rename wrote live (`Chat Test`→`Chat Test 2`→restored via REST), Save
+enable/disable + threshold-clamp-disabled (2-member group) correct, owner sees Delete not Leave.
+Leave/Delete writes + the member-view render stay **deploy-gated**. **NEXT: Steps 6–7** — friends backend
+`removeFriend` (deletes both friendship docs) + friends UI (presence dot + status label, tap→profile view
+of streak/focus-hours/mascot+accessory, remove-friend with confirm; keep the allowlist view). Step-5 UI is
+not yet committed (last commit `1570ec8` = step 4).
 
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
 - Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).
