@@ -1,6 +1,8 @@
 package com.example.lockin
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,17 +15,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +69,10 @@ fun FriendsScreen() {
     var sendState by remember { mutableStateOf<SendState>(SendState.Idle) }
     var incoming by remember { mutableStateOf<List<FriendRequest>>(emptyList()) }
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
+    // Live focus status per friend, keyed by uid (absent == idle/offline).
+    var presence by remember { mutableStateOf<Map<String, UserPresence>>(emptyMap()) }
+    // The friend whose profile sheet is open (null == none).
+    var profileTarget by remember { mutableStateOf<Friend?>(null) }
 
     DisposableEffect(myUid) {
         val registrations = mutableListOf<ListenerRegistration>()
@@ -69,6 +81,14 @@ fun FriendsScreen() {
             registrations += listenFriends(myUid) { friends = it }
         }
         onDispose { registrations.forEach { it.remove() } }
+    }
+
+    // Presence rides its own listener because the friend set changes over the
+    // screen's life; re-subscribe whenever the roster does.
+    val friendUidList = friends.map { it.uid }
+    DisposableEffect(friendUidList) {
+        val reg = listenPresence(friendUidList) { presence = it }
+        onDispose { reg.remove() }
     }
 
     fun sendRequest() {
@@ -184,9 +204,37 @@ fun FriendsScreen() {
             }
         }
         items(friends, key = { "friend-${it.uid}" }) { friend ->
-            FriendRow(friend, context)
+            FriendRow(
+                friend = friend,
+                presence = presence[friend.uid],
+                onClick = { profileTarget = friend }
+            )
         }
     }
+
+    profileTarget?.let { target ->
+        FriendProfileSheet(
+            friend = target,
+            presence = presence[target.uid],
+            myUid = myUid,
+            context = context,
+            onDismiss = { profileTarget = null }
+        )
+    }
+}
+
+/** effectiveState-driven dot colour + short label for a friend's focus status. */
+@Composable
+private fun presenceDotColor(presence: UserPresence?): Color = when (presence?.effectiveState()) {
+    PresenceState.LOCKED_IN -> MaterialTheme.colorScheme.secondary
+    PresenceState.BREAK -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+}
+
+private fun presenceLabel(presence: UserPresence?): String = when (presence?.effectiveState()) {
+    PresenceState.LOCKED_IN -> "Locked in"
+    PresenceState.BREAK -> "On break"
+    else -> "Idle"
 }
 
 @Composable
@@ -219,40 +267,118 @@ private fun RequestRow(request: FriendRequest, onAccept: () -> Unit, onDecline: 
 }
 
 @Composable
-private fun FriendRow(friend: Friend, context: android.content.Context) {
-    var expanded by remember { mutableStateOf(false) }
-    var allowlist by remember { mutableStateOf<Set<String>?>(null) }
+private fun FriendRow(friend: Friend, presence: UserPresence?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(presenceDotColor(presence), CircleShape)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = friend.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = presenceLabel(presence),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
-    LaunchedEffect(expanded) {
-        if (expanded && allowlist == null) {
-            fetchFriendAllowlist(friend.uid) { allowlist = it }
+/**
+ * Tap-through profile of a friend. Every field here is friend-readable under
+ * firestore.rules: the wardrobe + Sparkles ride the users/{uid} doc; streak and
+ * focus hours come from their activity feed (their private sessions log is
+ * owner-only, so the poster stamps streakAtPost for us); the allowlist is the
+ * Stage-3 transparency read. Remove-friend deletes both friendship docs.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FriendProfileSheet(
+    friend: Friend,
+    presence: UserPresence?,
+    myUid: String?,
+    context: android.content.Context,
+    onDismiss: () -> Unit,
+) {
+    var wardrobe by remember(friend.uid) { mutableStateOf<Wardrobe?>(null) }
+    var allowlist by remember(friend.uid) { mutableStateOf<Set<String>?>(null) }
+    // Streak + total focus seconds, derived from the friend's recent activity.
+    var streak by remember(friend.uid) { mutableStateOf<Int?>(null) }
+    var focusSeconds by remember(friend.uid) { mutableStateOf(0L) }
+    var showRemoveConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(friend.uid) {
+        fetchWardrobe(friend.uid) { wardrobe = it }
+        fetchFriendAllowlist(friend.uid) { allowlist = it }
+        fetchFeed(listOf(friend.uid)) { items ->
+            // Feed is newest-first; the latest post carries the freshest streak.
+            streak = items.firstOrNull()?.streakAtPost ?: 0
+            focusSeconds = items.sumOf { it.durationSeconds }
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = { expanded = !expanded }),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Mascot(
+                    mood = when (presence?.effectiveState()) {
+                        PresenceState.BREAK -> MascotMood.BREAK
+                        PresenceState.LOCKED_IN -> MascotMood.IDLE
+                        else -> MascotMood.SLEEPING
+                    },
+                    size = 64.dp,
+                    accessory = wardrobe?.equipped ?: MascotAccessory.NONE,
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = friend.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(presenceDotColor(presence), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = presenceLabel(presence),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                StatCell("Streak", streak?.let { "🔥 $it" } ?: "…", Modifier.weight(1f))
+                StatCell("Focus hours", focusHoursLabel(focusSeconds), Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
-                text = friend.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
+                text = "Allowlist",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = if (expanded) "Hide allowlist" else "View allowlist",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        if (expanded) {
             Spacer(modifier = Modifier.height(6.dp))
             val list = allowlist
             when {
@@ -276,6 +402,60 @@ private fun FriendRow(friend: Friend, context: android.content.Context) {
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Remove friend",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showRemoveConfirm = true }
+                    .padding(vertical = 12.dp)
+            )
         }
     }
+
+    if (showRemoveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRemoveConfirm = false },
+            title = { Text("Remove ${friend.displayName}?") },
+            text = { Text("You'll stop seeing each other's focus status and activity. You can add them again later.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveConfirm = false
+                    val uid = myUid ?: return@TextButton
+                    removeFriend(uid, friend.uid)
+                    onDismiss()
+                }) { Text("Remove", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun StatCell(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** Whole hours when clean, else one decimal (e.g. "3.5h"); recent activity only. */
+private fun focusHoursLabel(seconds: Long): String {
+    val hours = seconds / 3600.0
+    return if (hours >= 10 || hours == hours.toLong().toDouble()) "${hours.toLong()}h"
+    else String.format("%.1fh", hours)
 }

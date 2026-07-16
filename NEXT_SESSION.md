@@ -11,7 +11,19 @@ summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins r
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
 
-## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4·5 done → NEXT: Steps 6–7 friends; deploy gate still open)
+## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4·5·6·7 ALL built + emulator-verified → only the DEPLOY GATE remains before Stage 8 closes)
+
+**⏭️ Stage 8 feature work is COMPLETE — every step (1–7) is built and the owner/read paths are
+emulator-verified.** The one thing standing between here and "Stage 8 done" is the **rules deploy**:
+Steps 1, 6, 7's presence reads/writes + the reciprocal-unfriend delete, plus steps 2/4/5's admin +
+leave/delete writes, are all deploy-gated on `firestore.rules` shipping to `lockin-app-sg`. On resume:
+run the deploy (thread A below) and tick off the gated verifications — that's the last task. **Steps 6–7
+landed 2026-07-16** (`removeFriend` two-independent-deletes + `FriendProfileSheet`: presence dot/label
+per row, tap→mascot+accessory / 🔥streak-from-activity / focus-hours / allowlist / remove-with-confirm;
+verified live on `Feed Tester` — 🔥0 / 0.4h / no-allowlist / confirm renders). `firestore.rules` gained a
+`friends/{friendUid}` delete clause letting either party end a friendship.
+<!-- prior resume note kept below for the deploy-gate detail -->
+### (superseded header) Stage 8 — Steps 2·3·4·5 done → Steps 6–7 friends; deploy gate still open
 **Stage 7 is DONE and emulator-verified** (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`, step 4
 verification-only). **Stage 8 was re-scoped from "Polish & Portfolio Packaging" to Social Refinement
 (Groups & Friends)** at Quinn's request — packaging is now Stage 9. Direction locked with Quinn

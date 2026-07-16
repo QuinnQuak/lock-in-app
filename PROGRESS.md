@@ -154,6 +154,25 @@ restored); Save enable/disable gating correct; the threshold stepper's −/+ bot
 1…1 clamp of a 2-member group; owner sees **Delete**, not Leave. **Deploy-gated** (same rules blocker as
 steps 1–2): member/admin **Leave** and owner **Delete** writes, and the member-view render (non-owner).
 
+**Steps 6–7 — Friends: remove + profile view + presence ✅ (emulator-verified; presence & reciprocal-delete
+deploy-gated; 2026-07-16).** *Step 6 (backend):* `removeFriend(myUid, friendUid)` in `FriendsStore.kt` fires
+two **independent** deletes (not a batch — a batch is atomic, so a denied reciprocal delete would roll back
+my own-side delete). My own `users/{me}/friends/{friend}` doc deletes under current rules; the reciprocal
+`users/{friend}/friends/{me}` needs the new `firestore.rules` clause — `friends/{friendUid}` `delete` now
+allows `auth.uid == uid || auth.uid == friendUid`, i.e. either party can end a friendship (symmetric with the
+reciprocal *create* on accept). *Step 7 (UI, `FriendsScreen.kt`):* each friend row is now presence dot + name +
+status label, fed by `listenPresence` over the friend-uid set (re-subscribed on roster change). Tapping a row
+opens `FriendProfileSheet` (`ModalBottomSheet`): mascot wearing the friend's equipped accessory (mood from
+presence) + a status dot; a **Streak** stat (🔥, read from their latest `activity` doc's `streakAtPost` —
+their `sessions` log is owner-only, so the poster stamps it) and **Focus hours** (summed `durationSeconds`
+over their readable `activity`, so recent-capped); the **allowlist** (moved here out of the old inline
+row-expander); and **Remove friend** behind an `AlertDialog` confirm. **Verified on the emulator (mutebreaker →
+`Feed Tester`):** row shows a grey dot + "Idle"; the sheet renders the sleeping mascot, 🔥0 (their `streakAtPost`),
+**0.4h** (their one 25-min activity = 1500 s), "No allowlisted apps", and the remove-confirm dialog (cancelled
+to preserve the fixture). **Deploy-gated:** live presence dots (presence reads are denied until the rules ship,
+so every friend reads Idle for now) and the reciprocal-side unfriend delete. **⏭️ Stage 8 feature work (steps
+1–7) is now complete — only the rules deploy + its gated verifications remain to close the stage.**
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).

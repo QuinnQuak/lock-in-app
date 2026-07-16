@@ -72,9 +72,20 @@
    (as with step-4 promote/demote), so verify **owner rename + owner threshold** live now; **Leave
    (member/admin) + Delete are deploy-gated** — verify in the post-`firebase login` batch. Build +
    install + emulator-verify owner paths, then note the gated ones honestly.
-6. **Friends backend** — `removeFriend` (deletes both friendship docs).
-7. **Friends UI** — presence dot + status label per friend, tap → profile view (streak / focus hours /
-   mascot+accessory), remove-friend with confirm. Keep the allowlist view.
+6. ✅ **Friends backend** — DONE. `removeFriend(myUid, friendUid)` deletes both friendship docs as two
+   independent deletes (not a batch — my own-side delete must land even if the reciprocal is denied). My
+   own `friends/{friendUid}` doc deletes under current rules; the reciprocal `users/{friendUid}/friends/
+   {myUid}` needs the new `firestore.rules` delete clause (either party may end a friendship — symmetric
+   with the reciprocal *create* on accept), so it's **deploy-gated**.
+7. ✅ **Friends UI** — DONE (emulator-verified; presence + reciprocal-delete deploy-gated). Each friend
+   row is now presence dot + name + status label (`listenPresence` over the friend set). Tap → `FriendProfileSheet`
+   (`ModalBottomSheet`): mascot wearing their equipped accessory + presence, **Streak** (🔥, from their
+   latest `activity` doc's `streakAtPost` — their private sessions log is owner-only) + **Focus hours**
+   (summed over readable `activity`, recent-capped), the allowlist (moved out of the old inline expander),
+   and **Remove friend** behind an `AlertDialog` confirm. **Verified on `Feed Tester`:** row dot+"Idle",
+   sheet shows 🔥0 / 0.4h (their 25-min activity) / "No allowlisted apps", remove-confirm renders (cancelled
+   to keep the fixture). **Deploy-gated:** live presence dots (reads denied until rules ship) + the
+   reciprocal-side unfriend delete.
 
 ## Residual / out of scope (state honestly later)
 - No multi-channel per group (single chat kept); no server rail. Deferred unless Quinn revisits.

@@ -60,7 +60,14 @@ service cloud.firestore {
       }
 
       match /friends/{friendUid} {
-        allow read, delete: if isSignedIn() && request.auth.uid == uid;
+        allow read: if isSignedIn() && request.auth.uid == uid;
+
+        // Either party can end the friendship: the list owner removes a friend
+        // from their own subcollection, and the removed friend may delete the
+        // reciprocal doc under the other's subcollection (symmetric unfriend,
+        // no Cloud Function -- same posture as the reciprocal *create* below).
+        allow delete: if isSignedIn() &&
+          (request.auth.uid == uid || request.auth.uid == friendUid);
 
         // The owner can always write their own friends list. The *other*
         // party in a request they just accepted may also create the
