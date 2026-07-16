@@ -1,5 +1,10 @@
 package com.example.lockin
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -269,11 +274,7 @@ fun ProfileScreen(
         Spacer(Modifier.height(12.dp))
 
         if (loadedAchievements == null) {
-            CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 2.dp,
-                modifier = Modifier.width(24.dp)
-            )
+            AchievementGridSkeleton(cellCount = ACHIEVEMENT_COUNT)
         } else {
             loadedAchievements.chunked(2).forEach { rowItems ->
                 Row(
@@ -543,6 +544,45 @@ private fun ThemeSwatch(
             style = MaterialTheme.typography.bodySmall,
             color = if (selected) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+// How many milestone cells the grid renders — derived from the pure builder so the
+// loading skeleton always matches the real grid's shape, even if milestones change.
+private val ACHIEVEMENT_COUNT = computeAchievements(emptyList(), 1).size
+
+// Placeholder grid shown while achievements load. Mirrors the real 2-column layout
+// (fixed-height rounded cells, last odd cell half-width) with a gentle pulse so the
+// section reads as "loading" instead of flashing a near-invisible dot.
+@Composable
+private fun AchievementGridSkeleton(cellCount: Int) {
+    val pulse = rememberInfiniteTransition(label = "achievement-skeleton")
+    val alpha by pulse.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "achievement-skeleton-alpha"
+    )
+    val cellColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    (0 until cellCount).chunked(2).forEach { rowItems ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            rowItems.forEach { _ ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(116.dp)
+                        .background(cellColor, RoundedCornerShape(24.dp))
+                )
+            }
+            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
 

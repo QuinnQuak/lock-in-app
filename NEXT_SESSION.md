@@ -22,7 +22,8 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
 1. ~~No end-of-session payoff~~ **✅ FIXED + verified** — clean Stop pops a "Nice work!" summary
    (time focused · Sparkles · streak + counts/too-short message; mirrors what the service records).
 2. ~~Roster showed "Member (you)"~~ **✅ FIXED + verified** — now "Quinn (you)".
-3. **Achievements loading** is a near-invisible tiny dot before the grid loads (Profile). *(not yet done)*
+3. ~~Achievements loading was a near-invisible tiny dot~~ **✅ FIXED + verified** — Profile now shows a pulsing
+   skeleton grid (matches the real 2-column layout) that swaps into the loaded cells with no layout jump.
 4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
 6. **Chat messages have no timestamps** (minor). *(not yet done)*
 7. **Feed didn't surface a friend post** — likely fixture staleness; quick-verify friend posts render. *(not done)*
@@ -37,9 +38,8 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
   "Nice work!" + time focused / Sparkles / streak + counts-vs-too-short message. Numbers mirror `LockInService`
   teardown (floor(sec/60) sparkles; `fetchStreakInfo` streak folding in this session). Verified `0:27 · +0 ✨ · 🔥 3`.
 
-**⏭️ Resume:** remaining punch-list items — **#3** achievements loading (tiny dot → skeleton/spinner), **#6** chat
-timestamps, **#7** feed friend-post verify — or the optional README-screenshots tail. Files changed but **not yet
-committed:** `MainActivity.kt` (#1 summary dialog) + docs.
+**⏭️ Resume:** remaining punch-list items — **#6** chat timestamps, **#7** feed friend-post verify — or the optional
+README-screenshots tail. (#1, #2, #3, #4/#5 all done + committed; #3 = `Stage 9 #3` skeleton grid.)
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

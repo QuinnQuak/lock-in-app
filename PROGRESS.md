@@ -223,6 +223,15 @@ shows the known numbers instantly and fills the streak in when the read returns 
 can't re-show it). Only on a **clean** finish — an alert-state stop (break/alarm) shows no summary. Verified live:
 a 27s solo stop showed `0:27 · +0 ✨ · 🔥 3 day streak · "Lock in 30 min to count…"`, Done dismissed to idle Home.
 
+**Fix: achievements loading skeleton (#3) ✅ (emulator-verified).** The Profile achievements grid used to flash a
+near-invisible 24dp `CircularProgressIndicator` while the milestone read was in flight. Replaced with
+`AchievementGridSkeleton` (`ProfileScreen.kt`) — a placeholder that mirrors the real 2-column layout (fixed-height
+`116.dp` rounded cells, last odd cell half-width) with a gentle `rememberInfiniteTransition` alpha pulse (0.35↔0.75,
+800ms reverse), so the section reads as "loading" and swaps into the real grid with no layout jump. Cell count is
+`ACHIEVEMENT_COUNT = computeAchievements(emptyList(), 1).size`, derived from the pure builder so it never drifts from
+the real grid. Verified live via a temporary 5s fetch delay (since stripped): skeleton rendered 7 placeholder cells,
+then swapped cleanly into "2 of 7 earned" (First Lock-In / Getting Consistent) in the same slots.
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).
