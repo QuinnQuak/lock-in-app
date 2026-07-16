@@ -76,6 +76,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.google.firebase.Firebase
@@ -639,6 +640,14 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.height(20.dp))
+            // In a GROUP session, Stop is blocked while the alarm sounds so the
+            // breaker can't just hit Stop to silence a sticky alarm the group
+            // hasn't approved. Bounded by the 2-min cap (MAX_ALARM_DURATION_MILLIS)
+            // so alarmSounding always flips false within 2 min -- never trapped.
+            // Solo is unaffected: its alarm self-clears the moment the user
+            // refocuses an allowlisted app, so there's nothing to block.
+            val gid = session.groupId
+            val stopBlocked = gid != null && isAlarmSounding
             PressableButton(
                 onClick = {
                     // A stop taken while alert (break/alarm) isn't a clean
@@ -647,15 +656,25 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
                     stopLockInSession(context)
                     session = loadSession(context)
                 },
+                enabled = !stopBlocked,
                 containerColor = statusColor,
                 icon = Icons.Rounded.Close,
                 text = "Stop Lock-In"
             )
+            if (stopBlocked) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Alarm is active — it clears when your group approves or after the 2-minute cap",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
 
             // Group lock-ins now live in the group room. From Home you see only
             // your own status + Stop, plus a shortcut into the room to see the
             // group and manage a mute.
-            val gid = session.groupId
             if (gid != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
@@ -692,7 +711,8 @@ internal fun PressableButton(
     onClick: () -> Unit,
     containerColor: Color,
     icon: ImageVector,
-    text: String
+    text: String,
+    enabled: Boolean = true
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -704,6 +724,7 @@ internal fun PressableButton(
 
     Button(
         onClick = onClick,
+        enabled = enabled,
         interactionSource = interactionSource,
         colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = Color.White),
         shape = RoundedCornerShape(26.dp),
