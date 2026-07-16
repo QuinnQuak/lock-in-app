@@ -25,7 +25,8 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
 3. ~~Achievements loading was a near-invisible tiny dot~~ **✅ FIXED + verified** — Profile now shows a pulsing
    skeleton grid (matches the real 2-column layout) that swaps into the loaded cells with no layout jump.
 4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
-6. **Chat messages have no timestamps** (minor). *(not yet done)*
+6. ~~Chat messages have no timestamps~~ **✅ FIXED + verified** — each bubble now shows a locale-aware short
+   clock time (12/24h per device), aligned to the sender's side.
 7. **Feed didn't surface a friend post** — likely fixture staleness; quick-verify friend posts render. *(not done)*
 
 **✅ Landed this session:**
@@ -44,8 +45,8 @@ a new **Appearance** header in Profile, `WindowCompat` status/nav-bar handling, 
 every screen + the session-summary dialog in forced Dark (Bubblegum) — all legible. `Theme.kt`, `ThemeStore.kt`,
 `ProfileScreen.kt`, `MainActivity.kt`.
 
-**⏭️ Resume:** remaining punch-list items — **#6** chat timestamps, **#7** feed friend-post verify — or the optional
-README-screenshots tail. (#1, #2, #3, #4/#5 done + committed; dark mode done.)
+**⏭️ Resume:** last punch-list item — **#7** feed friend-post verify (likely fixture staleness, not a bug) — or the
+optional README-screenshots tail. (#1–#6 all done + committed; dark mode done.)
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

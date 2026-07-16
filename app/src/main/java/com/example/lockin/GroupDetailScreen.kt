@@ -1,5 +1,6 @@
 package com.example.lockin
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Firebase
 import com.google.firebase.auth.auth
+import java.util.Date
 import kotlinx.coroutines.delay
 
 @Composable
@@ -1068,5 +1070,17 @@ private fun MessageBubble(msg: GroupMessage, isMine: Boolean) {
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
+        // Locale-aware short clock time (respects the device's 12/24h setting),
+        // aligned under the bubble on the sender's side.
+        val context = LocalContext.current
+        val timeText = remember(msg.createdAtMillis) {
+            DateFormat.getTimeFormat(context).format(Date(msg.createdAtMillis))
+        }
+        Text(
+            text = timeText,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp, start = 6.dp, end = 6.dp)
+        )
     }
 }

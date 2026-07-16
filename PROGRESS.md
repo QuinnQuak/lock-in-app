@@ -249,6 +249,13 @@ toggle + sweep"). Key finding on investigation: **the dark palettes already exis
   — all legible, correct contrast, status-bar icons white on dark. Verified Light↔Dark↔System round-trip + the
   status bar flipping back to dark icons on return to light. Reset the fixture to SYSTEM after.
 
+**Fix: chat timestamps (#6) ✅ (emulator-verified).** Group chat messages showed no time. `GroupMessage` already
+carried `createdAtMillis` (server timestamp, with a local-echo fallback to now) — it just wasn't rendered.
+`MessageBubble` (`GroupDetailScreen.kt`) now shows a locale-aware short clock time under each bubble via
+`DateFormat.getTimeFormat(context)` (respects the device's 12/24h setting), `remember`ed on `createdAtMillis`,
+in `labelSmall`/`onSurfaceVariant`, aligned to the sender's side. Verified live: "hello" → `8:01 AM` (right),
+"live ping from feedtester" → `12:05 PM` (left).
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).
