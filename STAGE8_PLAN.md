@@ -33,10 +33,14 @@
    monogram + "N members" + "N locked in" (live count from `memberStatuses`; swaps to presence later).
    Existing lobby + chat blocks moved under their tabs unchanged. Redundant in-screen title dropped (the
    top bar already carries the group name).
-4. **Members tab** — ✅ *roster shipped* with step 3: names resolved via `fetchGroupMemberProfiles`
-   (public `userSearch` reads), live status dot (locked-in / break / idle-grey) + **Owner** role badge.
-   *Still TODO:* admin badge (needs step 2 `adminUids`), add-member from friends, owner/admin controls
-   (promote/demote/remove), and swapping the idle dot to true presence (step 1).
+4. ✅ **Members tab** — DONE (owner-path emulator-verified; admin-path deploy-gated). Roster names via
+   `fetchGroupMemberProfiles`; live status dot + **Owner**/**Admin** role badges. **Add member** row
+   (owner/admin only) → `AddMemberSheet` picker of friends not already in the group (empty-state when none).
+   Tap an actionable member → `MemberActionSheet` (ModalBottomSheet): owner sees Promote/Demote + Remove;
+   admin sees Remove for plain members only; owner + self rows aren't tappable (self-leave is step 5).
+   MainActivity now live-syncs the open `selectedGroup` off `listenMyGroups` (roster/role/rename edits
+   reflect immediately; pops to the list on delete/leave). *Still TODO:* swap the idle dot to true
+   presence (step 1, deploy-gated).
 5. **Settings sheet** — rename, mute-threshold stepper, leave (member/admin), delete (owner-only),
    with confirms on destructive actions.
 6. **Friends backend** — `removeFriend` (deletes both friendship docs).

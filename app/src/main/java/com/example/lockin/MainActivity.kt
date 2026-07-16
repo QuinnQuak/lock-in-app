@@ -184,6 +184,20 @@ class MainActivity : ComponentActivity() {
                 // The group whose room (GroupDetail) is open, if any.
                 var selectedGroup by remember { mutableStateOf<LockInGroup?>(null) }
 
+                // Keep the open detail screen live off the groups listener: pick up
+                // rename / roster / role edits, and pop back to the list if the group
+                // is deleted or we've left / been removed from it.
+                LaunchedEffect(myGroups, selectedGroup?.id) {
+                    val id = selectedGroup?.id ?: return@LaunchedEffect
+                    val fresh = myGroups.find { it.id == id }
+                    if (fresh == null) {
+                        if (current == Screen.GroupDetail) current = Screen.Groups
+                        selectedGroup = null
+                    } else if (fresh != selectedGroup) {
+                        selectedGroup = fresh
+                    }
+                }
+
                 // Dismissing the Home notification nudge hides it for this
                 // session only; hoisted here (not inside HomeScreen) so a tab
                 // switch doesn't bring it back, while an app relaunch does.

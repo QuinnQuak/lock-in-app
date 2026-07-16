@@ -24,9 +24,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -85,16 +90,31 @@ fun GroupDetailScreen(group: LockInGroup) {
         fetchGroupMemberProfiles(group.memberUids) { memberProfiles = it }
     }
 
+    // My friends, for the add-member picker (only those not already in the group).
+    var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
+
+    // Members-tab management UI state: the member whose action sheet is open, and
+    // whether the add-member picker is showing.
+    var actionTarget by remember { mutableStateOf<GroupMemberProfile?>(null) }
+    var showAddMember by remember { mutableStateOf(false) }
+
     DisposableEffect(group.id) {
-        val regs = listOf(
+        val regs = mutableListOf(
             listenLobbies(group.id) { lobbies = it },
             listenGroupLiveStatus(group.id) { memberStatuses = it },
             listenMuteRequests(group.id) { muteRequests = it },
             listenMuteApprovals(group.id) { muteApprovals = it },
             listenGroupMessages(group.id) { messages = it },
         )
+        if (myUid != null) regs += listenFriends(myUid) { friends = it }
         onDispose { regs.forEach { it.remove() } }
     }
+
+    // My management rights (mirrors firestore.rules): the owner controls
+    // everything; an admin manages membership but can't touch roles/ownership.
+    val iAmOwner = myUid != null && myUid == group.ownerUid
+    val iAmAdmin = myUid != null && myUid in group.adminUids
+    val canManage = iAmOwner || iAmAdmin
 
     // The session is owned by the foreground service; poll so Join/Stop taken
     // elsewhere (Home) and shared-round auto-stops are reflected here.
@@ -336,6 +356,32 @@ fun GroupDetailScreen(group: LockInGroup) {
 
                 // ---- Members tab ----
                 GroupTab.MEMBERS -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (canManage) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showAddMember = true }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PersonAdd,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Text(
+                                    text = "Add member",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        }
+                    }
                     if (memberProfiles.isEmpty()) {
                         item {
                             Text(
@@ -346,15 +392,55 @@ fun GroupDetailScreen(group: LockInGroup) {
                         }
                     }
                     items(memberProfiles, key = { it.uid }) { profile ->
+                        val targetIsOwner = profile.uid == group.ownerUid
+                        val targetIsAdmin = profile.uid in group.adminUids
+                        // Rows I can act on (owner: anyone but self/owner; admin:
+                        // only plain members). Self-leave lives in the settings sheet.
+                        val actionable = canManage && !targetIsOwner && profile.uid != myUid &&
+                            (iAmOwner || !targetIsAdmin)
                         MemberRow(
                             profile = profile,
-                            isOwner = profile.uid == group.ownerUid,
+                            isOwner = targetIsOwner,
+                            isAdmin = targetIsAdmin,
                             isMe = profile.uid == myUid,
-                            liveState = memberStatuses.firstOrNull { it.uid == profile.uid }?.state
+                            liveState = memberStatuses.firstOrNull { it.uid == profile.uid }?.state,
+                            onClick = if (actionable) ({ actionTarget = profile }) else null
                         )
                     }
                 }
             }
+        }
+
+        // ---- Members-tab management sheets ----
+        actionTarget?.let { target ->
+            MemberActionSheet(
+                target = target,
+                targetIsAdmin = target.uid in group.adminUids,
+                iAmOwner = iAmOwner,
+                onPromote = {
+                    promoteAdmin(group.id, target.uid) {}
+                    actionTarget = null
+                },
+                onDemote = {
+                    demoteAdmin(group.id, target.uid) {}
+                    actionTarget = null
+                },
+                onRemove = {
+                    removeMember(group.id, target.uid) {}
+                    actionTarget = null
+                },
+                onDismiss = { actionTarget = null }
+            )
+        }
+        if (showAddMember) {
+            AddMemberSheet(
+                friends = friends.filter { it.uid !in group.memberUids },
+                onAdd = { uids ->
+                    if (uids.isNotEmpty()) addMembers(group.id, uids) {}
+                    showAddMember = false
+                },
+                onDismiss = { showAddMember = false }
+            )
         }
     }
 }
@@ -369,8 +455,10 @@ private enum class GroupTab(val label: String) {
 private fun MemberRow(
     profile: GroupMemberProfile,
     isOwner: Boolean,
+    isAdmin: Boolean,
     isMe: Boolean,
     liveState: ComplianceState?,
+    onClick: (() -> Unit)?,
 ) {
     // A live status dot: green when locked in, amber on break, muted grey when
     // idle/offline. Presence-driven staleness lands with the presence step.
@@ -382,6 +470,7 @@ private fun MemberRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -412,6 +501,8 @@ private fun MemberRow(
         }
         if (isOwner) {
             RoleBadge("Owner")
+        } else if (isAdmin) {
+            RoleBadge("Admin")
         }
     }
 }
@@ -429,6 +520,121 @@ private fun RoleBadge(label: String) {
             color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MemberActionSheet(
+    target: GroupMemberProfile,
+    targetIsAdmin: Boolean,
+    iAmOwner: Boolean,
+    onPromote: () -> Unit,
+    onDemote: () -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = target.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (targetIsAdmin) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    RoleBadge("Admin")
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            // Only the owner touches roles; admins can just remove plain members.
+            if (iAmOwner) {
+                if (targetIsAdmin) {
+                    SheetAction("Demote to member", onDemote)
+                } else {
+                    SheetAction("Promote to admin", onPromote)
+                }
+            }
+            SheetAction("Remove from group", onRemove, destructive = true)
+        }
+    }
+}
+
+@Composable
+private fun SheetAction(label: String, onClick: () -> Unit, destructive: Boolean = false) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodyLarge,
+        color = if (destructive) MaterialTheme.colorScheme.error
+        else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 14.dp)
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMemberSheet(
+    friends: List<Friend>,
+    onAdd: (List<String>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Text(
+                text = "Add member",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (friends.isEmpty()) {
+                Text(
+                    text = "All your friends are already in this group.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            } else {
+                friends.forEach { friend ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selected = if (friend.uid in selected) selected - friend.uid
+                                else selected + friend.uid
+                            }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = friend.uid in selected,
+                            onCheckedChange = { checked ->
+                                selected = if (checked) selected + friend.uid else selected - friend.uid
+                            }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(friend.displayName, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(modifier = Modifier.weight(1f))
+                PressableButton(
+                    onClick = { onAdd(selected.toList()) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    icon = Icons.Rounded.Add,
+                    text = if (selected.isEmpty()) "Add" else "Add ${selected.size}"
+                )
+            }
+        }
     }
 }
 

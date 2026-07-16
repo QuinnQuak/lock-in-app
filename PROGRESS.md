@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: UI reorg (tabs+roster) done; Steps 1 (presence) & 2 (group roles/management backend) code-complete, both blocked on a `firestore.rules` deploy. Turnkey plan in `STAGE8_PLAN.md`.
+## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: Steps 3 (tabs) + 4 (Members tab controls, owner-path emulator-verified) done; Steps 1 (presence) & 2 (group roles/management backend) code-complete; admin-initiated writes + self-leave blocked on a `firestore.rules` deploy. Turnkey plan in `STAGE8_PLAN.md`.
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -125,6 +125,20 @@ ownership stay owner-only, so an admin can't self-perpetuate or seize the group)
 self-remove (leave) — the rule pins every other field to its prior value. `delete` stays owner-only. Compiles clean.
 **Write paths NOT yet verified — same deploy gate as step 1** (verify a rename/admin-edit/self-leave alongside the
 presence round-trip once the rules ship).
+
+**Step 4 — Members tab controls ✅ (owner-path emulator-verified; admin-path deploy-gated; 2026-07-16).**
+Built on the step-3 roster: an **Add member** row (owner/admin only) opening `AddMemberSheet` — a
+`ModalBottomSheet` picker of friends *not* already in the group (empty-state "All your friends are already
+in this group" when none); a tap-a-member `MemberActionSheet` with role-aware actions (**owner**: Promote↔Demote
++ Remove; **admin**: Remove plain members only; owner + self rows aren't tappable — self-leave is step 5);
+and **Owner**/**Admin** `RoleBadge`s driven by `adminUids`. `MainActivity` now live-syncs the open
+`selectedGroup` off `listenMyGroups` so role/roster/rename edits reflect without re-navigating, and pops back
+to the group list if the group is deleted or we leave/are removed. **Verified on the emulator as owner
+(mutebreaker):** promote→demote→promote on `Chat Test` each wrote (confirmed via REST `adminUids`) and the
+badge re-rendered live; both action-sheet variants + the add-member empty-state render correctly. Owner-path
+writes succeed under the *currently-deployed* rules (owner-any-update); **admin-initiated writes, member
+self-leave, and real add/remove/delete stay deploy-gated** with steps 1–2. Left Feed Tester as an admin
+fixture (`adminUids: [zfuW…]`) on `Chat Test` for the post-deploy admin-path check.
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:

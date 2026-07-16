@@ -11,7 +11,7 @@ summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins r
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
 
-## What's next — RESUME POINT (Stage 8 — Social Refinement; UI reorg + Steps 2 done, Steps 1&2 deploy-blocked)
+## What's next — RESUME POINT (Stage 8 — Social Refinement; Steps 2·3·4 done, Steps 1/2/4 admin-paths deploy-gated)
 **Stage 7 is DONE and emulator-verified** (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`, step 4
 verification-only). **Stage 8 was re-scoped from "Polish & Portfolio Packaging" to Social Refinement
 (Groups & Friends)** at Quinn's request — packaging is now Stage 9. Direction locked with Quinn
@@ -36,21 +36,27 @@ by 10; `UserPresence.effectiveState()` = IDLE if >30s stale); `LockInService` wr
 **BUT every write returns `PERMISSION_DENIED` — `firestore.rules` is NOT deployed to `lockin-app-sg`.**
 Deploy is now agent-runnable (portable Node + `firebase-tools` installed) **pending a one-time interactive
 `firebase login` by Quinn** — offer the `! firebase login` inline form. See `[[project-rules-deploy-blocked]]`.
-**✅ Step 2 (group model + roles + management backend) landed 2026-07-16** (unblocked thread, Quinn's
-pick). `adminUids` on `LockInGroup` (+ `canManage`); `GroupStore` management fns (rename, threshold,
-add/remove/leave, promote/demote, delete-with-subcollection-cleanup); `firestore.rules` update path now
-allows admins (name/threshold/members, never ownerUid/adminUids) + self-leave. Compiles; **write paths
-NOT yet verified — the rules aren't deployed** (same gate as step 1). Not committed.
+**✅ Steps 2 & 4 landed 2026-07-16** (unblocked thread, Quinn's pick; committed `f3723b9` for step 2).
+- **Step 2 backend:** `adminUids` on `LockInGroup` (+ `canManage`); `GroupStore` management fns (rename,
+  threshold, add/remove/leave, promote/demote, delete-with-subcollection-cleanup); `firestore.rules`
+  update path allows admins (name/threshold/members, never ownerUid/adminUids) + non-owner self-leave.
+- **Step 4 Members tab UI:** Add-member picker sheet (friends not in group) + tap-row `MemberActionSheet`
+  (owner: Promote/Demote/Remove; admin: Remove plain members) + Owner/Admin badges. MainActivity live-syncs
+  the open group so role/roster/rename edits show without re-navigating (and pops out on delete/leave).
+- **Verified live (owner path works under the CURRENTLY-DEPLOYED rules):** promote→demote→promote round-trip
+  on `Chat Test` all wrote + re-rendered; both sheet variants + add-member empty-state render correct.
+  **Deploy-gated (need the new rules):** admin-initiated writes, member self-leave, real add/remove/delete.
+  Feed Tester is now left as an **admin fixture** on `Chat Test` (`adminUids: [zfuW…]`) for that check.
 
 **On resume, pick up either thread:** (A) **DEPLOY GATE** — once Quinn runs `firebase login`,
 `firebase deploy --only firestore:rules` (ships **both** presence *and* the step-2 group-management
 rules), then verify: presence writes+reads (start a solo lock-in as `mutebreaker`, then
 `tools/fb.py get presence/J88TDlaV6Wf80RRxP94iDjXZlCH3`) **and** a group-management write (e.g.
 `renameGroup` on `Chat Test` as owner, an admin edit, a member self-leave); wire the Members dot to
-presence; **or** (B) continue unblocked — **Step 4** remaining Members controls (admin badge from
-`adminUids`, add-member from friends, promote/demote/remove buttons) + **Step 5** settings sheet, then
-Steps 6–7 (friends backend + UI). Commit the UI reorg + step-2 backend
-(`GroupDetailScreen.kt` · `GroupStore.kt` · `firestore.rules`) when Quinn's happy with them.
+presence; **or** (B) continue unblocked — **Step 5** group settings sheet (rename, mute-threshold
+stepper, leave for member/admin, delete owner-only, with destructive-action confirms), then **Steps 6–7**
+(friends backend `removeFriend` + friends UI: presence dot, tap→profile, remove-friend). Step-4 Members
+UI is committed as part of the step-4 commit.
 
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
 - Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).
