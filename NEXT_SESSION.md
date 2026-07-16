@@ -16,15 +16,20 @@ also added (`origin` → `QuinnQuak/lock-in-app`, public) and pushed once — bu
 without an explicit ask**; Quinn asked to pause pushing and stay local for now. Keep committing
 locally as usual.
 
-## What's next — RESUME POINT (Stage 7 step 2 — void force-closed sessions)
-**Stage 7 step 1 (fail-closed detection) is DONE and emulator-verified** — committed `7d710b3` (docs
-in the follow-up commit). Detection is now fail-closed: a screen-on unknown foreground is a BREAK, a
-deliberate Usage-Access revocation alarms on the first tick, and the lookback widened to session start.
-Full build+verify log in `PROGRESS.md`'s Stage 7 section. **Resume at Stage 7 step 2** — see the
-`STAGE7_PLAN.md` Step 2 spec (heartbeat + reconcile-on-launch to void a force-closed session, giving it
-no credit). Steps 3 (block Stop while a group alarm sounds) and 4 (verify 2-min cap + correct the
-airplane-mode record) follow. *Test setup note:* mutebreaker's allowlist now has Chrome, Clock, and
-Settings (added as step-1 fixtures).
+## What's next — RESUME POINT (Stage 7 step 3 — block Stop while a group alarm sounds)
+**Stage 7 steps 1 + 2 are DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`,
+step 2 (void force-closed sessions) `3a91f94`. Step 1: a screen-on unknown foreground is a BREAK, a
+deliberate Usage-Access revocation alarms on the first tick, lookback widened to session start. Step 2:
+the service writes a 1s **heartbeat** to session prefs; `MainActivity.onResume` reconciles a phantom
+(force-closed) session via `isStale()` (active + heartbeat >10s old) — voids it with **no credit** and
+shows a one-time red Home "interrupted" banner; a `START_STICKY` `voided` path in `LockInService`
+handles an OS auto-restart. Verified: force-stop→relaunch voids + banner + REST-unchanged counts, while
+a Home-button background stays active (heartbeat keeps beating). Full build+verify log in `PROGRESS.md`.
+**Resume at Stage 7 step 3** — see the `STAGE7_PLAN.md` Step 3 spec: in `SessionControls`
+(`MainActivity.kt`), while in a group session (`session.groupId != null`) **and**
+`LockInMonitor.alarmSounding`, disable Stop and explain (clears on group approval or the 2-min cap).
+Needs the two-party REST harness. Step 4 (verify 2-min cap + correct the airplane-mode record) follows.
+*Test setup note:* mutebreaker's allowlist has Chrome, Clock, and Settings (step-1 fixtures).
 
 
 **Stage 6 — Cute Redesign & Mascot Economy is COMPLETE (all 6 steps).** Same-day design redecision
@@ -46,9 +51,9 @@ in `CONTEXT.md`'s Design Direction; full build log in `PROGRESS.md`.
   across a cold relaunch; a Flower buy dropped ✨100→85, REST-confirmed `owned:[FLOWER]`,
   `equipped:FLOWER`. Commit hash: see `PROGRESS.md` "What's Next".
 
-**Stage 7 — Anti-Cheat Hardening is IN PROGRESS (step 1 of 4 done).** The adversarial pass on Stage 1's
-detection core, fully scoped in `STAGE7_PLAN.md` (decisions made with Quinn 2026-07-15/16, do NOT
-re-litigate). Its spine: detection *was* **fail-open** (`evaluateCompliance` treated an unknown
+**Stage 7 — Anti-Cheat Hardening is IN PROGRESS (steps 1 + 2 of 4 done).** The adversarial pass on
+Stage 1's detection core, fully scoped in `STAGE7_PLAN.md` (decisions made with Quinn 2026-07-15/16, do
+NOT re-litigate). Its spine: detection *was* **fail-open** (`evaluateCompliance` treated an unknown
 foreground as COMPLIANT — revoke Usage Access mid-session → permanent compliance), now flipped
 **fail-closed** with a widened lookback + grace debounce so the flip is safe.
 - **Step 1 — fail-closed detection ✅ DONE (committed `7d710b3`, emulator-verified).** Three edits
@@ -58,10 +63,17 @@ foreground as COMPLIANT — revoke Usage Access mid-session → permanent compli
   screen-off still compliant, **revoking Usage Access mid-session fires the alarm on the first tick and
   stays broken even when the app is reopened**, rapid app-switching raises no false alarm. Full log in
   `PROGRESS.md`; rationale in `ARCHITECTURE.md`.
-- **Steps 2–4 remaining** (execute in order, verify each on the emulator first): **2** void
-  force-closed sessions (heartbeat + reconcile-on-launch, no credit); **3** block Stop while a group
-  alarm sounds (`SessionControls`, bounded by the 2-min cap); **4** verify the 2-min cap (temp-lower it)
-  + correct the airplane-mode record. Turnkey specs + live-verify steps for each in `STAGE7_PLAN.md`.
+- **Step 2 — void force-closed sessions ✅ DONE (committed `3a91f94`, emulator-verified).** The service
+  writes a 1s **heartbeat** to session prefs; `MainActivity.onResume` reconciles via `isStale()` (active
+  + heartbeat >10s old) → voids the phantom with **no credit** + a one-time red Home "interrupted"
+  banner. Voiding is free (record helpers only run in `onDestroy`, which a force-stop skips); a
+  `START_STICKY` `voided` path in `LockInService` handles an OS auto-restart with a dark window.
+  Verified: force-stop→relaunch voids the phantom + shows the banner + **REST-confirmed unchanged
+  sparkles/session/activity counts**, while a Home-button background keeps the heartbeat fresh so the
+  session stays active (not voided). Full log in `PROGRESS.md`; rationale in `ARCHITECTURE.md`.
+- **Steps 3–4 remaining** (execute in order, verify each on the emulator first): **3** block Stop while
+  a group alarm sounds (`SessionControls`, bounded by the 2-min cap); **4** verify the 2-min cap
+  (temp-lower it) + correct the airplane-mode record. Turnkey specs + live-verify steps in `STAGE7_PLAN.md`.
 
 **Stage 8 — Polish & Portfolio Packaging** (was Stage 7): onboarding flow docs, README, demo video/screenshots.
 

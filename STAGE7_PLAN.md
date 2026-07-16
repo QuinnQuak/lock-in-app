@@ -173,8 +173,17 @@ silently granting a free pass."
 
 ---
 
-## Step 2 — Force-closed session is voided *(independent, solo-verifiable)*
+## Step 2 — Force-closed session is voided ✅ DONE (`3a91f94`, emulator-verified)
 **Goal:** kill the phantom "active" session left after a force-stop, and give it **no credit**.
+
+> **Built as specified below.** Heartbeat (`KEY_LAST_HEARTBEAT` + `writeHeartbeat` in
+> `LockInSessionStore.kt`, written each tick by `LockInService`), `isStale()` (active + heartbeat
+> >`SESSION_STALE_THRESHOLD_MILLIS` 10s), `MainActivity.onResume` reconcile → void + one-time red
+> `InterruptedBanner`, and a `START_STICKY` `voided` path in `LockInService` (onCreate detects an
+> already-stale restart; onStartCommand tears down; onDestroy early-returns past recording *and* the
+> receiver-unregister). Verified on the emulator: force-stop→relaunch voids the phantom + shows the
+> banner + REST-confirmed unchanged `sparkles/sessions/activity`; a Home-button background stays active
+> (heartbeat fresh). Full log in `PROGRESS.md`.
 
 **Files:** `LockInSessionStore.kt` (add a heartbeat field), `LockInService.kt` (write heartbeat each
 tick; staleness check in `onCreate` for START_STICKY restarts), `MainActivity.kt` (reconcile on
@@ -272,7 +281,8 @@ defeats detection," which is imprecise. Verify and record the truth:
 1 → 2 → 3 → 4. Step 1 is the highest-value, most-novel, and fully solo-verifiable — validate the
 risky core first (matches Stage 1's "validate before building on top"). Step 2 is independent and
 also solo-verifiable. Step 3 needs the group REST harness. Step 4 is verification/cleanup, last.
-Each step is committable on its own and leaves the app runnable.
+Each step is committable on its own and leaves the app runnable. **Steps 1 (`7d710b3`) + 2 (`3a91f94`)
+done; resume at Step 3.**
 
 ## Residual limitations we knowingly keep (portfolio honesty)
 - Sign-out ends a session, bypassing the Step 3 Stop block (Stage 8 candidate).
