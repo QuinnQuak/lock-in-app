@@ -26,7 +26,7 @@ Friend requests (search by email, send/accept/decline), symmetric friendships, f
 - ✅ Group data model + create/join (owner-managed membership picked from friends at creation — no accept-step join flow, a documented scope simplification).
 - ✅ Real-time group session state sync — live compliance pushed to Firestore per member, shown as a colored-dot list on Home during an active group session.
 - ✅ Break alerts — mocked (no Blaze billing for real FCM/Cloud Functions): a local notification fires via the same live listener when a groupmate breaks. Verified: cold app launch with an existing BREAK doc correctly raised a notification.
-- ✅ Alarm cap — auto-silences after 2 min regardless of group response. Implemented and logic-reviewed; not runtime-verified (would need a real 2-minute wait).
+- ✅ Alarm cap — auto-silences after 2 min regardless of group response. Implemented and logic-reviewed; later ✅ runtime-verified in Stage 7 step 4 with a temp-lowered cap (`capped=true muteGranted=false`).
 - ✅ **Mute-approval flow** (`MuteRequestStore.kt`): the breaker asks the group to silence their alarm, and it goes quiet once `muteApprovalCount` *other* members approve. Muting stops the sound only — the BREAK state, the red dot, and `breakCount` all stand.
 - ✅ **Sticky alarm in group sessions** — a prerequisite discovered while building the above, not a nice-to-have: the alarm used to track live compliance, so a breaker opening Lock-In to request a mute became "compliant" and silenced their own alarm on the way in, making approval unreachable. See `CONTEXT.md`'s 2026-07-15 decision and `ARCHITECTURE.md`'s Key Decisions.
 

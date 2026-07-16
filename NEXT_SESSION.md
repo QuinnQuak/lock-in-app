@@ -9,11 +9,12 @@
 Stages 0–6 complete and emulator-verified (full detail in `docs/archive/STAGES_0-6.md`; one-line
 summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins reworked into
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
-mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is in progress — steps 1–3 of 4 done.**
+mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
 
-## What's next — RESUME POINT (Stage 7 step 4 — verify 2-min cap + correct the airplane-mode record)
-**Stage 7 steps 1 + 2 + 3 are DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`,
-step 2 (void force-closed sessions) `3a91f94`, step 3 (block Stop while a group alarm sounds) `ec0bd09`.
+## What's next — RESUME POINT (Stage 8 — Polish & Portfolio Packaging)
+**Stage 7 is DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`, step 2 (void
+force-closed sessions) `3a91f94`, step 3 (block Stop while a group alarm sounds) `ec0bd09`, step 4
+(verify 2-min cap + correct airplane-mode record) verification-only, committed alongside these docs.
 - Step 1: a screen-on unknown foreground is a BREAK; a deliberate Usage-Access revocation alarms on the
   first tick; `currentForegroundApp` lookback widened to the session start.
 - Step 2: the service writes a 1s **heartbeat** to session prefs; `MainActivity.onResume` reconciles a
@@ -21,17 +22,15 @@ step 2 (void force-closed sessions) `3a91f94`, step 3 (block Stop while a group 
   credit** and shows a one-time red Home "interrupted" banner.
 - Step 3: in a **group** session with `LockInMonitor.alarmSounding`, the Home "Stop Lock-In" is disabled
   with a red caption (clears on group approval or the 2-min cap); `PressableButton` gained an `enabled` param.
+- Step 4: the 2-min alarm cap is now **runtime-verified** (`capped=true muteGranted=false` at a
+  temp-lowered cap, then restored); airplane mode only **delays** group reporting — local detection +
+  alarm are connectivity-independent, and a BREAK `liveStatus` write queues offline and flushes on
+  reconnect (Firestore offline persistence). No code kept from step 4; docs corrected.
 
-**Resume at Stage 7 step 4** — full turnkey spec in `STAGE7_PLAN.md` Step 4. Two parts, verify each on
-the emulator first:
-1. **Verify the 2-min cap:** temp-lower `MAX_ALARM_DURATION_MILLIS` (`LockInService.kt:36`) to ~20s,
-   trigger a group break, confirm the alarm auto-silences at ~20s with `capped=true muteGranted=false`
-   in logs, then **restore the constant**.
-2. **Correct the airplane-mode record:** local detection + the solo alarm are connectivity-independent
-   (only the *group reporting* layer needs Firestore) — check whether a queued BREAK `liveStatus` write
-   flushes on reconnect, then verify/rewrite the airplane-mode limitation in the docs.
-
-Then **Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots).
+**Resume at Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots).
+No turnkey plan doc exists for it yet — scope it with Quinn first (multi-round clarifying questions for
+anything ambiguous), then move step by step. The Stage 7 residual limitations to state honestly in the
+portfolio writeup are listed in `STAGE7_PLAN.md` ("Residual limitations we knowingly keep").
 
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
 - Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).

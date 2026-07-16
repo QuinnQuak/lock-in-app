@@ -251,9 +251,20 @@ caps out, exactly as designed."
 
 ---
 
-## Step 4 — Close the loose ends: verify the 2-min cap + correct the airplane-mode record
+## Step 4 — Close the loose ends: verify the 2-min cap + correct the airplane-mode record ✅ DONE (emulator-verified, verification-only — no code kept)
 **Goal:** convert two "logic-reviewed / vaguely-stated" items into verified, accurately-documented
 facts. Mostly verification + doc correction, minimal new code.
+
+> **Both verified.** Temp scaffolding (20s cap + a one-line `Stage7Cap` log) added, used, and fully
+> reverted (`git diff` clean, restored build reinstalled). **4a:** group break's sticky alarm
+> auto-silenced at the temp cap *without* approval — `CAP HIT capped=true muteGranted=false
+> elapsedMs=20287`, `dumpsys audio` showed the `USAGE_ALARM` MediaPlayer `event:stopped` + `releasing
+> player` at that instant, and Home re-enabled Stop (cap clears the Step-3 block). **4b:** airplane ON →
+> break → alarm `state:started` **while offline** (local detection is connectivity-independent); REST
+> (from host) still `COMPLIANT` (BREAK write queued, not sent); airplane OFF → REST `state: BREAK`
+> (queued write flushed on reconnect). So airplane mode *delays* group reporting, not defeats it —
+> Firestore offline persistence is on by default. Docs corrected in `PROGRESS.md` + `CONTEXT.md` +
+> `ARCHITECTURE.md` + `docs/archive/STAGES_0-6.md`. Full log in `PROGRESS.md`.
 
 **4a — 2-min alarm cap.** The docs are inconsistent (Stage 4 says "logic-reviewed, not runtime
 verified"; the lobby-rework Step 2 note says it fired once in an earlier pass). Nail it down:
@@ -281,8 +292,8 @@ defeats detection," which is imprecise. Verify and record the truth:
 1 → 2 → 3 → 4. Step 1 is the highest-value, most-novel, and fully solo-verifiable — validate the
 risky core first (matches Stage 1's "validate before building on top"). Step 2 is independent and
 also solo-verifiable. Step 3 needs the group REST harness. Step 4 is verification/cleanup, last.
-Each step is committable on its own and leaves the app runnable. **Steps 1 (`7d710b3`) + 2 (`3a91f94`)
-done; resume at Step 3.**
+Each step is committable on its own and leaves the app runnable. **All four steps done: 1 (`7d710b3`),
+2 (`3a91f94`), 3 (`ec0bd09`), 4 (verification-only). Stage 7 COMPLETE — next is Stage 8.**
 
 ## Residual limitations we knowingly keep (portfolio honesty)
 - Sign-out ends a session, bypassing the Step 3 Stop block (Stage 8 candidate).

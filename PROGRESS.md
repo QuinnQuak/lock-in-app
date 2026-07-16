@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–6 complete (see archive). Stage 7 (Anti-Cheat Hardening) 🚧 IN PROGRESS — steps 1 (fail-closed detection) + 2 (void force-closed sessions) + 3 (block Stop while a group alarm sounds) ✅ done. Next up: Stage 7 step 4 (verify 2-min cap + correct the airplane-mode record)
+## Status: Stages 0–6 complete (see archive). Stage 7 (Anti-Cheat Hardening) ✅ COMPLETE — steps 1 (fail-closed detection) + 2 (void force-closed sessions) + 3 (block Stop while a group alarm sounds) + 4 (2-min cap runtime-verified; airplane-mode record corrected) all done + emulator-verified. Next up: Stage 8 (Polish & Portfolio Packaging)
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -70,12 +70,31 @@ the host worked); fixed by killing + relaunching the emulator process (a guest `
 `sparkles:95, sessions:17, activity:13` — realistic, below every achievement threshold; all group subcollections
 (lobbies/liveStatus/muteRequests/muteApprovals) were cleaned back to empty over REST.
 
-**Step 4 remaining:** verify the 2-min cap (temp-lower it, confirm `capped=true`) + correct the airplane-mode
-record. See `STAGE7_PLAN.md`.
+**Step 4 — Verify the 2-min cap + correct the airplane-mode record ✅ (verified on emulator, no code change kept).**
+Both loose ends nailed down empirically; temp scaffolding (a 20s cap + a one-line `Stage7Cap` log) was added, used, and
+fully reverted (`git diff` clean, restored build reinstalled). Verified via the two-party fixture (`Chat Test`
+`r1hs2AriiJhQYBTLVsvF`, group CONCURRENT lobby started in-app).
+- **4a — 2-min cap runtime-verified.** With the cap temp-lowered to 20s, a group break's sticky alarm auto-silenced at
+  the cap **without** approval: `Stage7Cap: CAP HIT capped=true muteGranted=false elapsedMs=20287`, and `dumpsys audio`
+  showed the `USAGE_ALARM` MediaPlayer `event:stopped` + `releasing player` at that exact instant (sounded ~19s then
+  cut). Home then showed **LOCK-IN ACTIVE** with **Stop re-enabled** (no red caption) — confirming the cap path clears
+  the Step-3 block. Constant restored to `2 * 60 * 1000L`.
+- **4b — airplane mode is a *delay*, not an escape.** Group session active (REST liveStatus = `COMPLIANT`). Airplane
+  ON → Home (break): the `USAGE_ALARM` MediaPlayer was `state:started` **while offline** — local detection + alarm are
+  connectivity-independent (`UsageStatsManager` is a local query). REST (read from the host, not the offline emulator)
+  still showed `COMPLIANT` — the BREAK `liveStatus` write was **queued locally, not sent**. Airplane OFF → after
+  reconnect REST showed `state: BREAK` — the queued write **flushed on reconnect**. So airplane mode only *delays*
+  group reporting (Firestore offline persistence is on by default; the code already relies on it); the group can't
+  *see* the member go dark during the outage (that surfacing is the Stage-8 going-dark work, decision 3), and if the
+  process is *also* killed, Step 2 voids the session locally.
+No debug logging kept (temp `Stage7Cap` log stripped; verified via `dumpsys audio` + prefs + REST + screenshots).
+
+**Stage 7 COMPLETE** — all four steps done and emulator-verified (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`,
+step 4 verification-only). Next: **Stage 8 — Polish & Portfolio Packaging.**
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
-- Airplane mode defeats the *group reporting* layer (liveStatus/mute/alerts need Firestore); **local detection + the solo alarm are connectivity-independent** since `UsageStatsManager` is a local query. (Precise accounting is Stage 7 step 4 — still pending.)
+- Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).
 - Opening Lock-In itself always counts as compliant — the alarm can be silenced just by switching back to the app without actually returning to focus. (Acceptable: Lock-In isn't a distracting app — document, don't fix.)
 - Break alerts only fire while the observing device's own app process is alive (mock, not real FCM — see `ARCHITECTURE.md`).
 - Declining notifications during onboarding silences break alerts *and* the foreground-service notification. The session still runs and detection still works, so this is degraded rather than broken — and Home now surfaces a dismissible nudge (with a one-tap route to settings) to reconsider. Still a real choice: dismiss it and the degraded state stands until manually re-enabled.
@@ -88,7 +107,7 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 **Closed for group sessions by Stage 7 step 3 (`ec0bd09`):** in a group session, "Stop Lock-In" is disabled while the alarm sounds, so a breaker can't silence the sticky alarm by ending the session (bounded by the 2-min cap). Solo Stop and mid-alarm sign-out remain intentional residuals (see Known Limitations).
 
 ## What's Next
-1. **Stage 7 steps 1 + 2 + 3 are done and verified** (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`) — see the Stage 7 section above. **Resume at Stage 7 step 4 — verify the 2-min cap + correct the airplane-mode record:** temporarily lower `MAX_ALARM_DURATION_MILLIS` (`LockInService.kt:36`) to ~20s, trigger a group break, confirm the alarm auto-silences at ~20s with `capped=true muteGranted=false` in logs, then **restore the constant**; and verify/rewrite the airplane-mode limitation (local detection + alarm are connectivity-independent; only the *group reporting* layer needs Firestore; check whether a BREAK `liveStatus` write queues offline and flushes on reconnect). Full turnkey approach in `STAGE7_PLAN.md` Step 4. Then Stage 8 (Polish & Portfolio Packaging). *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — note a one-emulator lobby needs a REST-hosted live member to persist (see step 3 log).
-2. Loose ends folded into Stage 7: `currentForegroundApp()`'s lookback ✅ addressed in step 1 (widened to session start for >1h sessions). Still pending: the 2-min alarm cap is only logic-reviewed (step 4 will runtime-verify it with a temp-lowered cap).
+1. **Stage 7 is COMPLETE** — all four steps done and verified (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`; step 4 verification-only, this commit) — see the Stage 7 section above. **Resume at Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots). *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — a group session is startable solo by opening a CONCURRENT lobby in-app (you're the live member, so it survives dead-lobby cleanup); no REST-hosted member needed for that path.
+2. Loose ends folded into Stage 7: `currentForegroundApp()`'s lookback ✅ addressed in step 1 (widened to session start for >1h sessions); the 2-min alarm cap ✅ runtime-verified in step 4 (`capped=true muteGranted=false` at a temp-lowered cap).
 3. **GitHub remote (2026-07-15):** `origin` → `QuinnQuak/lock-in-app` (public), all history pushed once. Quinn then asked to pause pushing and stay local for now — commit as usual, don't `git push` again without an explicit ask. See `ARCHITECTURE.md`'s Source Control section.
 4. Older commit trail (Stages 5–6) recorded in `docs/archive/STAGES_0-6.md`.
