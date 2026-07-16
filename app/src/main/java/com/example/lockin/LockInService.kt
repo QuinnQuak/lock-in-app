@@ -35,6 +35,11 @@ private const val NOTIFICATION_ID = 1
 // response. The BREAK state itself is unaffected; only the sound stops.
 private const val MAX_ALARM_DURATION_MILLIS = 2 * 60 * 1000L
 
+// A screen-on "unknown foreground" (null) must persist this many 1s ticks
+// before it escalates to BREAK, so a single-tick lookback blip during a fast
+// app-switch can't false-alarm. Deliberate permission revocation bypasses it.
+private const val UNKNOWN_GRACE_TICKS = 4
+
 class LockInService : Service() {
 
     private var isScreenOn = true
@@ -55,6 +60,7 @@ class LockInService : Service() {
     private var displayName: String = "Someone"
     private var breakCount = 0
     private var wasInBreak = false
+    private var unknownTicks = 0   // consecutive screen-on + unknown-foreground ticks (grace debounce)
     private var alarmStartMillis = 0L
     private var alarmCapped = false
     private var alarmActive = false
@@ -157,9 +163,23 @@ class LockInService : Service() {
                     return@launch
                 }
 
-                val foregroundApp = if (isScreenOn) currentForegroundApp(this@LockInService) else null
+                val foregroundApp = if (isScreenOn) currentForegroundApp(this@LockInService, sessionStartMillis) else null
                 val allowlist = loadAllowlist(this@LockInService)
-                val status = evaluateCompliance(packageName, isScreenOn, foregroundApp, allowlist)
+
+                // Distinguish the *cause* of a screen-on null before deciding.
+                val unknownWhileOn = isScreenOn && foregroundApp == null
+                unknownTicks = if (unknownWhileOn) unknownTicks + 1 else 0
+                // Only pay for the AppOps check when there's actually an unknown to explain.
+                val permissionRevoked = unknownWhileOn && !hasUsageAccessPermission(this@LockInService)
+
+                val rawStatus = evaluateCompliance(packageName, isScreenOn, foregroundApp, allowlist)
+                // Hold compliant through a *transient* unknown (grace) -- but never for a
+                // deliberate revocation, which escalates on the first tick.
+                val status = if (unknownWhileOn && !permissionRevoked && unknownTicks < UNKNOWN_GRACE_TICKS) {
+                    ComplianceStatus(ComplianceState.COMPLIANT, foregroundApp)
+                } else {
+                    rawStatus
+                }
                 LockInMonitor.update(status)
 
                 val gid = groupId

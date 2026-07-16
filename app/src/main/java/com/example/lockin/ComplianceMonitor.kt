@@ -56,8 +56,12 @@ fun evaluateCompliance(
     foregroundApp: String?,
     allowlist: Set<String>
 ): ComplianceStatus {
+    // Fail-closed: an unknown foreground (null) while the screen is ON is not
+    // compliant. Screen-off stays compliant via !isScreenOn, so dropping the old
+    // `foregroundApp == null` clause costs nothing there but closes the "revoke
+    // Usage Access mid-session -> permanent compliance" hole. The service loop
+    // applies a grace debounce so a one-tick null can't edge-trigger a break.
     val isCompliant = !isScreenOn ||
-        foregroundApp == null ||
         foregroundApp == ownPackageName ||
         allowlist.contains(foregroundApp)
 
