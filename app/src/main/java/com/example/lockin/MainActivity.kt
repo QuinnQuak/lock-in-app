@@ -124,6 +124,7 @@ class MainActivity : ComponentActivity() {
     private var sessionInterrupted by mutableStateOf(false)
     // Device-local (ThemeStore, not Firestore) -- loaded once in onCreate below.
     private var appTheme by mutableStateOf(AppTheme.BUBBLEGUM)
+    private var appThemeMode by mutableStateOf(ThemeMode.SYSTEM)
 
     // Fires immediately on registration with the current state, then again on
     // every sign-in/sign-out — so `signedIn` needs no separate initialization.
@@ -135,8 +136,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Firebase.auth.addAuthStateListener(authStateListener)
         appTheme = loadAppTheme(this)
+        appThemeMode = loadThemeMode(this)
         setContent {
-            LockInTheme(theme = appTheme) {
+            LockInTheme(theme = appTheme, mode = appThemeMode) {
                 // While signed in, mirror the Firestore allowlist into the
                 // local SharedPreferences cache; torn down on sign-out.
                 DisposableEffect(signedIn) {
@@ -318,6 +320,11 @@ class MainActivity : ComponentActivity() {
                                         onThemeChange = { theme ->
                                             appTheme = theme
                                             saveAppTheme(this@MainActivity, theme)
+                                        },
+                                        currentThemeMode = appThemeMode,
+                                        onThemeModeChange = { mode ->
+                                            appThemeMode = mode
+                                            saveThemeMode(this@MainActivity, mode)
                                         },
                                         equippedAccessory = equippedAccessory,
                                         // Optimistic: update the hoisted state so

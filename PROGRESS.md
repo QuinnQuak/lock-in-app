@@ -232,6 +232,23 @@ near-invisible 24dp `CircularProgressIndicator` while the milestone read was in 
 the real grid. Verified live via a temporary 5s fetch delay (since stripped): skeleton rendered 7 placeholder cells,
 then swapped cleanly into "2 of 7 earned" (First Lock-In / Getting Consistent) in the same slots.
 
+**Feature: in-app dark mode ✅ (emulator-verified, full P1–P4).** Scoped with Quinn 2026-07-16 (chose "full in-app
+toggle + sweep"). Key finding on investigation: **the dark palettes already existed** — `Theme.kt` had complete
+`darkColorScheme`s for all four skins and `LockInTheme` already applied them, but only when the *OS* was dark
+(`isSystemInDarkTheme()`), with no in-app control and never verified on-device. Work done:
+- **P1 mode plumbing:** new `ThemeMode { LIGHT, DARK, SYSTEM }`; `LockInTheme(theme, mode)` resolves `dark` =
+  DARK / !LIGHT / OS-when-SYSTEM. `ThemeStore` gains `loadThemeMode`/`saveThemeMode` (defaults SYSTEM, so existing
+  installs keep prior behavior); `MainActivity` holds `appThemeMode` state, loads on create, saves on change.
+- **P2 picker UI:** `ThemeModeSelector` segmented Light/Dark/System pill in `ProfileScreen` under a new "Appearance"
+  header, above the skin swatches. Skin swatches now resolve their preview `dark` from the *active* scheme's
+  background luminance (not `isSystemInDarkTheme()`), so previews track a forced mode.
+- **P3 system bars:** `SideEffect` in `LockInTheme` sets `isAppearanceLight{Status,Navigation}Bars = !dark` via
+  `WindowCompat`, so the status/nav icons stay legible when the background flips.
+- **P4 verification sweep (emulator, forced Dark, Bubblegum skin):** drove Profile (+selector), Home (idle **and**
+  active lock-in), Feed, Friends, Groups list, GroupDetail (Lobbies + Chat tabs), and the **session-summary dialog**
+  — all legible, correct contrast, status-bar icons white on dark. Verified Light↔Dark↔System round-trip + the
+  status bar flipping back to dark icons on return to light. Reset the fixture to SYSTEM after.
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).

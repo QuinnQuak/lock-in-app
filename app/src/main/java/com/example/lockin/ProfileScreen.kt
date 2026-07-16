@@ -8,7 +8,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -60,6 +60,8 @@ import com.google.firebase.auth.auth
 fun ProfileScreen(
     currentTheme: AppTheme,
     onThemeChange: (AppTheme) -> Unit,
+    currentThemeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     equippedAccessory: MascotAccessory,
     onEquipAccessory: (MascotAccessory) -> Unit,
     onOpenAllowlist: () -> Unit,
@@ -423,6 +425,22 @@ fun ProfileScreen(
             )
         }
 
+        // Appearance — light/dark/system, independent of the accent skin below.
+        // Device-local only (ThemeStore); SYSTEM defers to the OS setting.
+        Text(
+            text = "Appearance",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(12.dp))
+        ThemeModeSelector(
+            selected = currentThemeMode,
+            onSelect = onThemeModeChange
+        )
+
+        Spacer(Modifier.height(24.dp))
+
         // Theme picker — a curated set of accent skins, not an open picker
         // (see CONTEXT.md's Design Direction). Device-local only (ThemeStore).
         Text(
@@ -509,6 +527,47 @@ private fun SettingsRow(
     }
 }
 
+// Segmented Light / Dark / System control. A single rounded track (surfaceVariant)
+// with the selected segment filled in primary — mirrors the pill styling used
+// elsewhere in the app, and stays legible in both light and dark schemes.
+@Composable
+private fun ThemeModeSelector(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(30.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                    )
+                    .clickable { onSelect(mode) }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = mode.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun ThemeSwatch(
     theme: AppTheme,
@@ -518,7 +577,10 @@ private fun ThemeSwatch(
 ) {
     // Preview each skin's own primary, not the current app theme's -- this is
     // the one place a swatch must show a color other than MaterialTheme's.
-    val swatchColor = theme.colorScheme(dark = isSystemInDarkTheme()).primary
+    // Resolve dark from the *active* scheme (its background luminance) so the
+    // preview tracks a forced Light/Dark mode, not just the OS setting.
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val swatchColor = theme.colorScheme(dark = dark).primary
     Column(
         modifier = modifier.clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally

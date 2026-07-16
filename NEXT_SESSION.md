@@ -38,8 +38,14 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
   "Nice work!" + time focused / Sparkles / streak + counts-vs-too-short message. Numbers mirror `LockInService`
   teardown (floor(sec/60) sparkles; `fetchStreakInfo` streak folding in this session). Verified `0:27 · +0 ✨ · 🔥 3`.
 
+**✅ Dark mode (full in-app toggle + sweep) — DONE & emulator-verified.** Scope picked by Quinn: full. The dark
+palettes already existed (OS-driven only); added `ThemeMode {LIGHT,DARK,SYSTEM}`, a Light/Dark/System selector under
+a new **Appearance** header in Profile, `WindowCompat` status/nav-bar handling, and `ThemeStore` persistence. Swept
+every screen + the session-summary dialog in forced Dark (Bubblegum) — all legible. `Theme.kt`, `ThemeStore.kt`,
+`ProfileScreen.kt`, `MainActivity.kt`.
+
 **⏭️ Resume:** remaining punch-list items — **#6** chat timestamps, **#7** feed friend-post verify — or the optional
-README-screenshots tail. (#1, #2, #3, #4/#5 all done + committed; #3 = `Stage 9 #3` skeleton grid.)
+README-screenshots tail. (#1, #2, #3, #4/#5 done + committed; dark mode done.)
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

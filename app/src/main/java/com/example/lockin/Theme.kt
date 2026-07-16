@@ -1,5 +1,6 @@
 package com.example.lockin
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
@@ -9,7 +10,9 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -18,6 +21,7 @@ import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 
 // Theme picker skins (decided 2026-07-15): a curated set of accent skins, not an
 // open picker, to keep the system cohesive. Each has its own light+dark pair.
@@ -29,6 +33,14 @@ enum class AppTheme(val label: String) {
     PEACH("Peach"),
     BERRY("Berry"),
     SUNSET("Sunset"),
+}
+
+// Light/dark preference, independent of the accent skin. SYSTEM defers to the OS
+// setting (the historical behavior); LIGHT/DARK force it regardless of the OS.
+enum class ThemeMode(val label: String) {
+    LIGHT("Light"),
+    DARK("Dark"),
+    SYSTEM("System"),
 }
 
 val CherryError = Color(0xFFE63950)
@@ -313,7 +325,29 @@ private fun TextStyle.withFredoka(): TextStyle = copy(fontFamily = FredokaFamily
 private fun TextStyle.withNunito(): TextStyle = copy(fontFamily = NunitoFamily)
 
 @Composable
-fun LockInTheme(theme: AppTheme = AppTheme.BUBBLEGUM, content: @Composable () -> Unit) {
-    val colorScheme = theme.colorScheme(dark = isSystemInDarkTheme())
+fun LockInTheme(
+    theme: AppTheme = AppTheme.BUBBLEGUM,
+    mode: ThemeMode = ThemeMode.SYSTEM,
+    content: @Composable () -> Unit
+) {
+    val dark = when (mode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    val colorScheme = theme.colorScheme(dark = dark)
+
+    // Keep the system status/nav bar icons legible against the app background:
+    // dark backgrounds want light (white) icons, light backgrounds want dark icons.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            val controller = WindowCompat.getInsetsController(window, view)
+            controller.isAppearanceLightStatusBars = !dark
+            controller.isAppearanceLightNavigationBars = !dark
+        }
+    }
+
     MaterialTheme(colorScheme = colorScheme, typography = LockInTypography, shapes = LockInShapes, content = content)
 }
