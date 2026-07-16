@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–6 complete (see archive). Stage 7 (Anti-Cheat Hardening) ✅ COMPLETE — steps 1 (fail-closed detection) + 2 (void force-closed sessions) + 3 (block Stop while a group alarm sounds) + 4 (2-min cap runtime-verified; airplane-mode record corrected) all done + emulator-verified. Next up: Stage 8 (Polish & Portfolio Packaging)
+## Status: Stages 0–7 complete (see archive / below). **Stage 8 re-scoped to Social Refinement (Groups & Friends)** at Quinn's request — portfolio packaging pushed to Stage 9. Stage 8 in progress: UI reorg (tabs+roster) done; Steps 1 (presence) & 2 (group roles/management backend) code-complete, both blocked on a `firestore.rules` deploy. Turnkey plan in `STAGE8_PLAN.md`.
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -90,7 +90,41 @@ fully reverted (`git diff` clean, restored build reinstalled). Verified via the 
 No debug logging kept (temp `Stage7Cap` log stripped; verified via `dumpsys audio` + prefs + REST + screenshots).
 
 **Stage 7 COMPLETE** — all four steps done and emulator-verified (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`,
-step 4 verification-only). Next: **Stage 8 — Polish & Portfolio Packaging.**
+step 4 verification-only).
+
+## Stage 8 — Social Refinement (Groups & Friends) 🚧 (turnkey plan in `STAGE8_PLAN.md`)
+Re-scoped from "Polish & Portfolio Packaging" (now Stage 9) at Quinn's request: the group + friends features feel
+incomplete/under-organized. Direction locked with Quinn 2026-07-16 — groups get Discord-like **organization +
+management** (tabbed Lobbies·Chat·Members + a settings sheet; **owner + admin roles**), friends get **remove +
+profile view + live focus status**, and both read a new app-wide **presence** doc. 7 steps in `STAGE8_PLAN.md`.
+
+**Step 1 — Presence foundation 🚧 (code-complete, NOT yet emulator-verified — blocked on a rules deploy).**
+New `PresenceStore.kt`: a top-level `presence/{uid}` doc (`state` LOCKED_IN/BREAK/IDLE + `displayName` +
+`lastSeenMillis`), modeled on the group `liveStatus` store but app-wide so solo sessions and friends-without-a-shared-group
+also report. `pushPresence`/`clearPresence(→IDLE)`, and `listenPresence(uids)` that chunks by 10 (Firestore `in`-query cap)
+and merges into a `Map<uid, UserPresence>`; `UserPresence.effectiveState()` treats a >30s-stale stamp as IDLE.
+`LockInService` writes presence every 1s tick (solo *and* group, mapping COMPLIANT→LOCKED_IN) and clears to IDLE on
+teardown. Added a `match /presence/{uid}` rule (read: any signed-in — group headers read co-members who may not be
+friends; write: owner only — same posture as `userSearch`). Compiles clean, installed. **Verified the write path
+fires every tick** via logcat, but every write currently returns `PERMISSION_DENIED` because **`firestore.rules` has
+not been deployed** to `lockin-app-sg`. Deploy tooling set up 2026-07-16: the machine had no Firebase CLI/Node, so a
+**portable Node v20.18.2 + npm `firebase-tools` v15.24.0** was installed (`C:\Users\quakj\node-v20.18.2-win-x64`, on
+user PATH; the self-contained firepit binary was tried first and abandoned — welcome-greeting JSON crash). Deploy is
+now agent-runnable (`firebase deploy --only firestore:rules`) **pending a one-time interactive `firebase login` by
+Quinn**. Round-trip verification + downstream steps stay blocked until the rules are live. See `[[project-rules-deploy-blocked]]`.
+
+**Step 2 — Group model + roles + management backend ✅ (code-complete, deploy-blocked like step 1; 2026-07-16).**
+`LockInGroup` gains `adminUids: List<String>` (listener reads it; `canManage(uid)` = owner ∪ admins). New
+`GroupStore` write paths (no UI yet): `renameGroup`, `setMuteThreshold`, `addMembers` (arrayUnion), `removeMember`
+& `leaveGroup` (arrayRemove from memberUids **and** adminUids so a departing/removed admin doesn't linger),
+`promoteAdmin`/`demoteAdmin` (arrayUnion/Remove on adminUids), and `deleteGroup` (batch-deletes the known
+subcollections — lobbies · messages · liveStatus · muteRequests · muteApprovals — then the parent doc; stragglers
+are orphaned but unreachable). `firestore.rules` `update` rule rewritten: **owner** = full control; **admin** may
+edit name/threshold/memberUids but the write is rejected if it touches `ownerUid` or `adminUids` (promotion &
+ownership stay owner-only, so an admin can't self-perpetuate or seize the group); **any non-owner member** may only
+self-remove (leave) — the rule pins every other field to its prior value. `delete` stays owner-only. Compiles clean.
+**Write paths NOT yet verified — same deploy gate as step 1** (verify a rename/admin-edit/self-leave alongside the
+presence round-trip once the rules ship).
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
@@ -107,7 +141,7 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 **Closed for group sessions by Stage 7 step 3 (`ec0bd09`):** in a group session, "Stop Lock-In" is disabled while the alarm sounds, so a breaker can't silence the sticky alarm by ending the session (bounded by the 2-min cap). Solo Stop and mid-alarm sign-out remain intentional residuals (see Known Limitations).
 
 ## What's Next
-1. **Stage 7 is COMPLETE** — all four steps done and verified (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`; step 4 verification-only, this commit) — see the Stage 7 section above. **Resume at Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots). *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — a group session is startable solo by opening a CONCURRENT lobby in-app (you're the live member, so it survives dead-lobby cleanup); no REST-hosted member needed for that path.
+1. **Stage 7 is COMPLETE** — all four steps done and verified (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`; step 4 verification-only, this commit) — see the Stage 7 section above. **Stage 8 was re-scoped from Polish & Portfolio Packaging to Social Refinement (Groups & Friends)** at Quinn's request (packaging → Stage 9); plan in `STAGE8_PLAN.md`, resume point in `NEXT_SESSION.md`. **Landed 2026-07-16 (uncommitted):** the `GroupDetail` **tab reorg** (Lobbies · Chat · Members + monogram header) and the Members **roster** (`fetchGroupMemberProfiles` via public `userSearch`, live status dot + Owner badge) — pulled ahead of the still-deploy-blocked presence step to fix the "disorganized" complaint; emulator-verified all three tabs. *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — a group session is startable solo by opening a CONCURRENT lobby in-app (you're the live member, so it survives dead-lobby cleanup); no REST-hosted member needed for that path.
 2. Loose ends folded into Stage 7: `currentForegroundApp()`'s lookback ✅ addressed in step 1 (widened to session start for >1h sessions); the 2-min alarm cap ✅ runtime-verified in step 4 (`capped=true muteGranted=false` at a temp-lowered cap).
 3. **GitHub remote (2026-07-15):** `origin` → `QuinnQuak/lock-in-app` (public), all history pushed once. Quinn then asked to pause pushing and stay local for now — commit as usual, don't `git push` again without an explicit ask. See `ARCHITECTURE.md`'s Source Control section.
 4. Older commit trail (Stages 5–6) recorded in `docs/archive/STAGES_0-6.md`.

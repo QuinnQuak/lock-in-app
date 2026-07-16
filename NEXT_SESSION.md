@@ -11,26 +11,46 @@ summaries in `PROGRESS.md`). Solo core, accounts/sync, friends, group lock-ins r
 Discord-style servers + live lobbies, social feed + gamification, and the Bubblegum cute-redesign +
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) is COMPLETE — all 4 steps done + emulator-verified.**
 
-## What's next — RESUME POINT (Stage 8 — Polish & Portfolio Packaging)
-**Stage 7 is DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`, step 2 (void
-force-closed sessions) `3a91f94`, step 3 (block Stop while a group alarm sounds) `ec0bd09`, step 4
-(verify 2-min cap + correct airplane-mode record) verification-only, committed alongside these docs.
-- Step 1: a screen-on unknown foreground is a BREAK; a deliberate Usage-Access revocation alarms on the
-  first tick; `currentForegroundApp` lookback widened to the session start.
-- Step 2: the service writes a 1s **heartbeat** to session prefs; `MainActivity.onResume` reconciles a
-  phantom (force-closed) session via `isStale()` (active + heartbeat >10s old) — voids it with **no
-  credit** and shows a one-time red Home "interrupted" banner.
-- Step 3: in a **group** session with `LockInMonitor.alarmSounding`, the Home "Stop Lock-In" is disabled
-  with a red caption (clears on group approval or the 2-min cap); `PressableButton` gained an `enabled` param.
-- Step 4: the 2-min alarm cap is now **runtime-verified** (`capped=true muteGranted=false` at a
-  temp-lowered cap, then restored); airplane mode only **delays** group reporting — local detection +
-  alarm are connectivity-independent, and a BREAK `liveStatus` write queues offline and flushes on
-  reconnect (Firestore offline persistence). No code kept from step 4; docs corrected.
+## What's next — RESUME POINT (Stage 8 — Social Refinement; UI reorg + Steps 2 done, Steps 1&2 deploy-blocked)
+**Stage 7 is DONE and emulator-verified** (step 1 `7d710b3`, step 2 `3a91f94`, step 3 `ec0bd09`, step 4
+verification-only). **Stage 8 was re-scoped from "Polish & Portfolio Packaging" to Social Refinement
+(Groups & Friends)** at Quinn's request — packaging is now Stage 9. Direction locked with Quinn
+2026-07-16 (do not re-litigate); turnkey 7-step plan in **`STAGE8_PLAN.md`**:
+- Groups get Discord-like **organization + management** — tabbed Lobbies·Chat·Members + a settings
+  sheet, with **owner + admin roles** (owner promotes members to admin; admins share management).
+- Friends get **remove + profile view + live focus status**.
+- Both read a new app-wide **presence** doc (LOCKED_IN / BREAK / IDLE + last-seen).
 
-**Resume at Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots).
-No turnkey plan doc exists for it yet — scope it with Quinn first (multi-round clarifying questions for
-anything ambiguous), then move step by step. The Stage 7 residual limitations to state honestly in the
-portfolio writeup are listed in `STAGE7_PLAN.md` ("Residual limitations we knowingly keep").
+**✅ UI reorg landed first (2026-07-16).** Quinn's live complaint was that the group screen felt
+*unpolished and disorganized*, so **Step 3 (tabs) + the Step-4 roster were pulled ahead** of the blocked
+presence step and are emulator-verified: `GroupDetailScreen` is now header (monogram + "N members" +
+"N locked in") + **Lobbies · Chat · Members** tabs. Members roster resolves names via
+`fetchGroupMemberProfiles` (public `userSearch` reads) with a live status dot + **Owner** badge. The
+redundant in-screen title is gone (top bar already shows the name). Not yet committed.
+
+**⚠️ Step 1 (presence foundation) is still code-complete but BLOCKED on a rules deploy.**
+Done: `PresenceStore.kt` (`presence/{uid}` doc; `pushPresence`/`clearPresence`/`listenPresence` chunked
+by 10; `UserPresence.effectiveState()` = IDLE if >30s stale); `LockInService` writes it each tick (solo
++ group) and clears to IDLE on teardown; a `match /presence/{uid}` rule added to `firestore.rules`
+(read: any signed-in; write: owner). Compiles + installed; the write path fires every tick (logcat).
+**BUT every write returns `PERMISSION_DENIED` — `firestore.rules` is NOT deployed to `lockin-app-sg`.**
+Deploy is now agent-runnable (portable Node + `firebase-tools` installed) **pending a one-time interactive
+`firebase login` by Quinn** — offer the `! firebase login` inline form. See `[[project-rules-deploy-blocked]]`.
+**✅ Step 2 (group model + roles + management backend) landed 2026-07-16** (unblocked thread, Quinn's
+pick). `adminUids` on `LockInGroup` (+ `canManage`); `GroupStore` management fns (rename, threshold,
+add/remove/leave, promote/demote, delete-with-subcollection-cleanup); `firestore.rules` update path now
+allows admins (name/threshold/members, never ownerUid/adminUids) + self-leave. Compiles; **write paths
+NOT yet verified — the rules aren't deployed** (same gate as step 1). Not committed.
+
+**On resume, pick up either thread:** (A) **DEPLOY GATE** — once Quinn runs `firebase login`,
+`firebase deploy --only firestore:rules` (ships **both** presence *and* the step-2 group-management
+rules), then verify: presence writes+reads (start a solo lock-in as `mutebreaker`, then
+`tools/fb.py get presence/J88TDlaV6Wf80RRxP94iDjXZlCH3`) **and** a group-management write (e.g.
+`renameGroup` on `Chat Test` as owner, an admin edit, a member self-leave); wire the Members dot to
+presence; **or** (B) continue unblocked — **Step 4** remaining Members controls (admin badge from
+`adminUids`, add-member from friends, promote/demote/remove buttons) + **Step 5** settings sheet, then
+Steps 6–7 (friends backend + UI). Commit the UI reorg + step-2 backend
+(`GroupDetailScreen.kt` · `GroupStore.kt` · `firestore.rules`) when Quinn's happy with them.
 
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
 - Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).

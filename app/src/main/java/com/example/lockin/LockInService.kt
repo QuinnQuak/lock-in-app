@@ -173,6 +173,11 @@ class LockInService : Service() {
                 )
             }
         }
+        if (uid != null) {
+            // App-wide presence back to idle (solo or group).
+            val displayName = Firebase.auth.currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Someone"
+            clearPresence(uid, displayName)
+        }
         val gid = groupId
         if (uid != null && gid != null) {
             clearLiveStatus(gid, uid)
@@ -212,9 +217,11 @@ class LockInService : Service() {
 
                 val gid = groupId
                 val uid = ownerUid
-                if (gid != null && uid != null) {
+                if (uid != null) {
                     val displayName = Firebase.auth.currentUser?.displayName?.takeIf { it.isNotBlank() } ?: "Someone"
-                    pushLiveStatus(gid, uid, displayName, status, lobbyId)
+                    // App-wide presence for friends/group headers (solo or group).
+                    pushPresence(uid, displayName, status.state)
+                    if (gid != null) pushLiveStatus(gid, uid, displayName, status, lobbyId)
                 }
 
                 val inBreak = status.state == ComplianceState.BREAK

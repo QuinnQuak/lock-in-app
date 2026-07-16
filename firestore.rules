@@ -79,6 +79,17 @@ service cloud.firestore {
       allow write: if isSignedIn() && request.auth.uid == uid;
     }
 
+    // App-wide focus presence: state (LOCKED_IN/BREAK/IDLE) + displayName +
+    // last-seen, written by the owner's foreground service each tick. Read is
+    // open to any signed-in user because both consumers need it -- a friends
+    // list AND a group header (whose co-members aren't necessarily friends) --
+    // and the payload is low-sensitivity, same posture as userSearch. Only the
+    // owner ever writes their own presence.
+    match /presence/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
+    }
+
     // One doc per (fromUid, toUid) pair, id "fromUid_toUid". Only the
     // sender can create it; either party can read or delete it (accepting
     // deletes it as a final cleanup step, declining just deletes it).
@@ -100,7 +111,30 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         request.auth.uid == request.resource.data.ownerUid &&
         request.auth.uid in request.resource.data.memberUids;
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
+
+      // Management (Stage 8 step 2):
+      //  - Owner: full control over any field.
+      //  - Admin (in adminUids): may edit name / muteApprovalCount / memberUids,
+      //    but NOT ownerUid or the adminUids roster -- promotion/demotion and
+      //    ownership stay owner-only so an admin can't self-perpetuate or seize
+      //    the group.
+      //  - Any non-owner member: may only remove themselves (leave), stripping
+      //    just their own uid from memberUids (and adminUids) and touching
+      //    nothing else. The owner leaves by transferring or deleting.
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.ownerUid ||
+        (request.auth.uid in resource.data.get('adminUids', []) &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.get('adminUids', []) == resource.data.get('adminUids', [])) ||
+        (request.auth.uid != resource.data.ownerUid &&
+          request.auth.uid in resource.data.memberUids &&
+          request.resource.data.memberUids == resource.data.memberUids.removeAll([request.auth.uid]) &&
+          request.resource.data.get('adminUids', []) == resource.data.get('adminUids', []).removeAll([request.auth.uid]) &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.name == resource.data.name &&
+          request.resource.data.muteApprovalCount == resource.data.muteApprovalCount)
+      );
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
 
       // Ephemeral live rooms inside a group. Any member can open a lobby, see
       // the group's lobbies, and close one (best-effort cleanup when the last

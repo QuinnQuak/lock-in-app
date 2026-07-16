@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
@@ -26,6 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +74,16 @@ fun GroupDetailScreen(group: LockInGroup) {
 
     // My own break, published in-process by the service on this device.
     val myBreakId by LockInMonitor.breakId.collectAsState()
+
+    // Which tab is showing. Lobbies is the default -- the reason you open a room.
+    var selectedTab by remember { mutableStateOf(GroupTab.LOBBIES) }
+
+    // Member roster (uid -> display name), resolved once per membership change
+    // from the public userSearch directory for the Members tab.
+    var memberProfiles by remember { mutableStateOf<List<GroupMemberProfile>>(emptyList()) }
+    LaunchedEffect(group.memberUids) {
+        fetchGroupMemberProfiles(group.memberUids) { memberProfiles = it }
+    }
 
     DisposableEffect(group.id) {
         val regs = listOf(
@@ -118,164 +133,302 @@ fun GroupDetailScreen(group: LockInGroup) {
         it.breakerUid == breakerUid && it.breakId == breakId && it.approverUid != breakerUid
     }
 
+    val lockedInNow = memberStatuses.map { it.uid }.distinct().size
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp, vertical = 12.dp)
     ) {
-        Text(
-            text = group.name,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = "${group.memberUids.size} members · mute needs ${group.muteApprovalCount} approval(s)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // ---- Lobbies ----
-        Text(
-            text = "LOBBIES",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (visibleLobbies.isEmpty()) {
-            Text(
-                text = "No active lobby. Start one to lock in together.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            visibleLobbies.forEach { lobby ->
-                LobbyCard(
-                    lobby = lobby,
-                    members = memberStatuses.filter { it.lobbyId == lobby.id },
-                    now = now,
-                    myUid = myUid,
-                    myName = myName,
-                    myBreakId = myBreakId,
-                    session = session,
-                    threshold = threshold,
-                    approvalsFor = ::approvalsFor,
-                    muteRequests = muteRequests,
-                    muteApprovals = muteApprovals,
-                    onJoin = {
-                        startLockInSession(context, group.id, group.name, lobby.id, lobby.endsAtMillis)
-                        session = loadSession(context)
-                    },
-                    onRequestMute = { breakId ->
-                        val uid = myUid ?: return@LobbyCard
-                        requestMute(group.id, uid, myName, breakId, lobby.id)
-                    },
-                    onApproveMute = { breakerUid, breakId ->
-                        val uid = myUid ?: return@LobbyCard
-                        approveMute(group.id, breakerUid, uid, breakId, lobby.id)
-                    }
+        // ---- Header: monogram + live summary (the name lives in the top bar) ----
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = group.name.trim().firstOrNull()?.uppercase() ?: "#",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "${group.memberUids.size} members",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = if (lockedInNow > 0) "$lockedInNow locked in now" else "Nobody locked in",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (lockedInNow > 0) MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
-        if (!session.isActive) {
-            Spacer(modifier = Modifier.height(4.dp))
-            if (!showCreate) {
-                PressableButton(
-                    onClick = { showCreate = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    icon = Icons.Rounded.Add,
-                    text = "Start a lobby"
-                )
-            } else {
-                LobbyCreatePanel(
-                    mode = newMode,
-                    onModeChange = { newMode = it },
-                    durationMin = newDurationMin,
-                    onDurationChange = { newDurationMin = it },
-                    onCancel = { showCreate = false },
-                    onOpen = {
-                        val uid = myUid ?: return@LobbyCreatePanel
-                        val duration = if (newMode == LobbyMode.SHARED) newDurationMin else 0
-                        openLobby(group.id, uid, name = "", mode = newMode, durationMinutes = duration) { lobbyId, endsAtMillis ->
-                            if (lobbyId != null) {
-                                startLockInSession(context, group.id, group.name, lobbyId, endsAtMillis)
-                                session = loadSession(context)
-                                showCreate = false
-                            }
-                        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ---- Tabs: Lobbies · Chat · Members ----
+        TabRow(
+            selectedTabIndex = selectedTab.ordinal,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            GroupTab.entries.forEach { tab ->
+                Tab(
+                    selected = selectedTab == tab,
+                    onClick = { selectedTab = tab },
+                    text = {
+                        Text(
+                            text = tab.label,
+                            fontWeight = if (selectedTab == tab) FontWeight.SemiBold else FontWeight.Normal
+                        )
                     }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // ---- Chat ----
-        Text(
-            text = "CHAT",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val listState = rememberLazyListState()
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
-        }
-        LazyColumn(
-            state = listState,
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-            if (messages.isEmpty()) {
-                item {
-                    Text(
-                        text = "No messages yet — say hi.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            items(messages, key = { it.id }) { msg ->
-                MessageBubble(msg = msg, isMine = msg.senderUid == myUid)
-            }
-        }
+            when (selectedTab) {
+                // ---- Lobbies tab ----
+                GroupTab.LOBBIES -> Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (visibleLobbies.isEmpty()) {
+                        Text(
+                            text = "No active lobby. Start one to lock in together.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        visibleLobbies.forEach { lobby ->
+                            LobbyCard(
+                                lobby = lobby,
+                                members = memberStatuses.filter { it.lobbyId == lobby.id },
+                                now = now,
+                                myUid = myUid,
+                                myName = myName,
+                                myBreakId = myBreakId,
+                                session = session,
+                                threshold = threshold,
+                                approvalsFor = ::approvalsFor,
+                                muteRequests = muteRequests,
+                                muteApprovals = muteApprovals,
+                                onJoin = {
+                                    startLockInSession(context, group.id, group.name, lobby.id, lobby.endsAtMillis)
+                                    session = loadSession(context)
+                                },
+                                onRequestMute = { breakId ->
+                                    val uid = myUid ?: return@LobbyCard
+                                    requestMute(group.id, uid, myName, breakId, lobby.id)
+                                },
+                                onApproveMute = { breakerUid, breakId ->
+                                    val uid = myUid ?: return@LobbyCard
+                                    approveMute(group.id, breakerUid, uid, breakId, lobby.id)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                    }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Message") },
-                shape = RoundedCornerShape(26.dp),
-                maxLines = 4
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(
-                onClick = {
-                    val uid = myUid ?: return@IconButton
-                    if (draft.isBlank()) return@IconButton
-                    sendGroupMessage(group.id, uid, myName, draft)
-                    draft = ""
+                    if (!session.isActive) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        if (!showCreate) {
+                            PressableButton(
+                                onClick = { showCreate = true },
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                icon = Icons.Rounded.Add,
+                                text = "Start a lobby"
+                            )
+                        } else {
+                            LobbyCreatePanel(
+                                mode = newMode,
+                                onModeChange = { newMode = it },
+                                durationMin = newDurationMin,
+                                onDurationChange = { newDurationMin = it },
+                                onCancel = { showCreate = false },
+                                onOpen = {
+                                    val uid = myUid ?: return@LobbyCreatePanel
+                                    val duration = if (newMode == LobbyMode.SHARED) newDurationMin else 0
+                                    openLobby(group.id, uid, name = "", mode = newMode, durationMinutes = duration) { lobbyId, endsAtMillis ->
+                                        if (lobbyId != null) {
+                                            startLockInSession(context, group.id, group.name, lobbyId, endsAtMillis)
+                                            session = loadSession(context)
+                                            showCreate = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.Send,
-                    contentDescription = "Send",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+
+                // ---- Chat tab ----
+                GroupTab.CHAT -> Column(modifier = Modifier.fillMaxSize()) {
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(messages.size) {
+                        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
+                    }
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        if (messages.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No messages yet — say hi.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        items(messages, key = { it.id }) { msg ->
+                            MessageBubble(msg = msg, isMine = msg.senderUid == myUid)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = draft,
+                            onValueChange = { draft = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Message") },
+                            shape = RoundedCornerShape(26.dp),
+                            maxLines = 4
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = {
+                                val uid = myUid ?: return@IconButton
+                                if (draft.isBlank()) return@IconButton
+                                sendGroupMessage(group.id, uid, myName, draft)
+                                draft = ""
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.Send,
+                                contentDescription = "Send",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                // ---- Members tab ----
+                GroupTab.MEMBERS -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (memberProfiles.isEmpty()) {
+                        item {
+                            Text(
+                                text = "Loading members…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    items(memberProfiles, key = { it.uid }) { profile ->
+                        MemberRow(
+                            profile = profile,
+                            isOwner = profile.uid == group.ownerUid,
+                            isMe = profile.uid == myUid,
+                            liveState = memberStatuses.firstOrNull { it.uid == profile.uid }?.state
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+private enum class GroupTab(val label: String) {
+    LOBBIES("Lobbies"),
+    CHAT("Chat"),
+    MEMBERS("Members"),
+}
+
+@Composable
+private fun MemberRow(
+    profile: GroupMemberProfile,
+    isOwner: Boolean,
+    isMe: Boolean,
+    liveState: ComplianceState?,
+) {
+    // A live status dot: green when locked in, amber on break, muted grey when
+    // idle/offline. Presence-driven staleness lands with the presence step.
+    val dotColor = when (liveState) {
+        ComplianceState.BREAK -> MaterialTheme.colorScheme.error
+        null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(dotColor, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = if (isMe) "${profile.displayName} (you)" else profile.displayName,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        val status = when (liveState) {
+            ComplianceState.BREAK -> "On break"
+            null -> ""
+            else -> "Locked in"
+        }
+        if (status.isNotEmpty()) {
+            Text(
+                text = status,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        if (isOwner) {
+            RoleBadge("Owner")
+        }
+    }
+}
+
+@Composable
+private fun RoleBadge(label: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(50)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+        )
     }
 }
 
