@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. Update this file after each meaningful milestone.
 
-## Status: Stages 0–5 complete + onboarding; group lock-ins reworked into Discord-style servers + live lobbies; Stage 6 ✅ COMPLETE (mascot economy). Stage 7 (Anti-Cheat Hardening) 🚧 IN PROGRESS — steps 1 (fail-closed detection) + 2 (void force-closed sessions) ✅ done. Next up: Stage 7 step 3 (block Stop while a group alarm sounds)
+## Status: Stages 0–5 complete + onboarding; group lock-ins reworked into Discord-style servers + live lobbies; Stage 6 ✅ COMPLETE (mascot economy). Stage 7 (Anti-Cheat Hardening) 🚧 IN PROGRESS — steps 1 (fail-closed detection) + 2 (void force-closed sessions) + 3 (block Stop while a group alarm sounds) ✅ done. Next up: Stage 7 step 4 (verify 2-min cap + correct the airplane-mode record)
 
 Every item below was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -140,7 +140,38 @@ The adversarial pass on Stage 1's detection core. Four independently-demoable st
 - **Background via Home (not force-stop):** heartbeat **stayed fresh** (advanced ~15s while backgrounded — the foreground service keeps beating), so returning showed the session **still active at 0:33 with no banner** — a legit background is correctly *not* voided.
 No debug logging added (verified entirely via prefs/REST/screenshots).
 
-**Steps 3–4 remaining:** 3) block Stop while a group alarm sounds, 4) verify the 2-min cap + correct the airplane-mode record. See `STAGE7_PLAN.md`.
+**Step 3 — Block Stop while a group alarm sounds ✅ (verified on emulator, committed `ec0bd09`).** The
+"Pressing Stop silences a sticky alarm" escape hatch is closed for **group** sessions. In `SessionControls`
+(`MainActivity.kt`), while `session.groupId != null` **and** `LockInMonitor.alarmSounding` is true, the Home
+"Stop Lock-In" button is disabled and a red caption explains why ("Alarm is active — it clears when your group
+approves or after the 2-minute cap"). `PressableButton` gained an `enabled` param (defaults true) forwarded to
+the underlying `Button`. Bounded by `MAX_ALARM_DURATION_MILLIS` (2 min) so the user is never trapped; **solo is
+unaffected** because its alarm self-clears on refocus (the block only ever engages when `groupId != null`).
+
+**Verified live on the emulator** (two-party, `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` driven over
+REST). Because a one-emulator lobby is cleaned up as "dead" without a live member, feedtester **hosted** the lobby
+over REST (a lobby doc + a feedtester `liveStatus` tagged with the lobbyId) so it persisted with a "Join" button;
+mutebreaker joined in-app (`onJoin → startLockInSession`, prefs confirmed `session_active=true`,
+`group_id=r1hs2AriiJhQYBTLVsvF`, `lobby_id=s7step3lobby`). Then:
+- **Break → sticky alarm → Stop disabled.** Pressing Home (launcher not allowlisted) fired the break;
+  `dumpsys audio` showed `USAGE_ALARM …MediaPlayer state:started`; returning to Home showed red "ALARM SOUNDING",
+  the **greyed-out disabled Stop button**, and the red caption. Tapping the disabled Stop was a **no-op** (prefs
+  still `session_active=true`), confirming the block holds.
+- **Cap path re-enables Stop.** Left the alarm running; at the 2-min cap the alarm auto-silenced, the header
+  flipped green "LOCK-IN ACTIVE", **Stop re-enabled**, and the caption vanished.
+- **Mute-approval path re-enables Stop (primary).** Triggered a fresh break, tapped "Ask the group to mute my
+  alarm" (room showed "Waiting on the group — 0/1 approved"), then feedtester approved over REST (matching
+  `breakId`/`lobbyId`); ~40s later (well under the 2-min cap, so it was the approval, not the cap) the alarm
+  silenced, Home re-enabled Stop, caption gone. Stopping the now-enabled session cleared prefs to inactive.
+No debug logging added (verified via `dumpsys audio` + prefs + screenshots). *Environment note:* the emulator's
+qemu DNS proxy had wedged after an airplane-mode toggle (app couldn't reach Firestore realtime though REST from
+the host worked); fixed by killing + relaunching the emulator process (a guest `adb reboot` was not enough).
+*Fixture note:* the ~7-min group test session (with breaks) was recorded on Stop, so mutebreaker now reads
+`sparkles:95, sessions:17, activity:13` — realistic, below every achievement threshold; all group subcollections
+(lobbies/liveStatus/muteRequests/muteApprovals) were cleaned back to empty over REST.
+
+**Step 4 remaining:** verify the 2-min cap (temp-lower it, confirm `capped=true`) + correct the airplane-mode
+record. See `STAGE7_PLAN.md`.
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
@@ -149,17 +180,19 @@ Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights
 - Opening Lock-In itself always counts as compliant — the alarm can be silenced just by switching back to the app without actually returning to focus. (Acceptable: Lock-In isn't a distracting app — document, don't fix.)
 - Break alerts only fire while the observing device's own app process is alive (mock, not real FCM — see `ARCHITECTURE.md`).
 - Declining notifications during onboarding silences break alerts *and* the foreground-service notification. The session still runs and detection still works, so this is degraded rather than broken — and Home now surfaces a dismissible nudge (with a one-tap route to settings) to reconsider. Still a real choice: dismiss it and the degraded state stands until manually re-enabled.
-- **Pressing "Stop Lock-In" silences a sticky alarm**, since the service tears down with it. So the alarm is now hard to silence *within* a session, but ending the session is still a free escape hatch. (Stage 7 step 3 target for group sessions.)
+- **Pressing "Stop Lock-In" silences a sticky alarm**, since the service tears down with it. ✅ **Closed for group sessions by Stage 7 step 3 (`ec0bd09`):** in a group session, Stop is disabled while the alarm sounds (clears on group approval or the 2-min cap). Two residuals knowingly kept: **solo** sessions still allow Stop (their alarm self-clears on refocus, so there's nothing to trap), and **sign-out** still tears the service down regardless of the block (a Stage 8 polish candidate).
 
 **Closed by Stage 7 step 1 (`7d710b3`):** revoking Usage Access mid-session no longer grants permanent compliance (now fail-closed → BREAK on the first tick); and `currentForegroundApp()`'s fixed 1-hour lookback is no longer a stopgap — it widens to the session start for >1h sessions.
 
 **Closed by Stage 7 step 2 (`3a91f94`):** force-stopping the app no longer leaves a silently-completable phantom session — a stale heartbeat is reconciled away on app entry (voided, no credit, flagged as interrupted).
 
+**Closed for group sessions by Stage 7 step 3 (`ec0bd09`):** in a group session, "Stop Lock-In" is disabled while the alarm sounds, so a breaker can't silence the sticky alarm by ending the session (bounded by the 2-min cap). Solo Stop and mid-alarm sign-out remain intentional residuals (see Known Limitations).
+
 ## Design Redecision (2026-07-15) — Stage 6, step 1 now built
 The warm amber/green palette (Stage 5 step 6, committed `3fcd7b5`) was **superseded by a new decision**, same day: a cute, bold, character-driven direction — "Bubblegum" pink/orange palette + a light/dark + multi-theme picker, Fredoka/Nunito typography, and a reactive mascot ("blob buddy") with equippable accessories unlocked via achievements (trophy case) and a new passively-earned Sparkles currency (Shop). Full spec in `CONTEXT.md`'s Design Direction. This is its own build stage (see above) — the palette + typography piece is now implemented and `ARCHITECTURE.md`'s "Visual Design" section reflects it; theme picker/mascot/economy are still queued.
 
 ## What's Next
-1. **Stage 7 steps 1 + 2 are done and verified** (step 1 `7d710b3`; step 2 `3a91f94`) — see the Stage 7 section above. **Resume at Stage 7 step 3 — block Stop while a group alarm sounds:** in `SessionControls` (`MainActivity.kt`), while in a **group** session (`session.groupId != null`) **and** `LockInMonitor.alarmSounding` is true, disable the Stop button and show why ("Alarm is active — it clears when your group approves or after the 2-minute cap"). Bounded by the 2-min cap so the user is never trapped; solo is unaffected (its alarm self-clears on refocus). Needs the two-party REST harness (`Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST). Full turnkey approach + verify in `STAGE7_PLAN.md` Step 3. Then step 4 (verify 2-min cap + correct the airplane-mode record), then Stage 8 (Polish & Portfolio Packaging).
+1. **Stage 7 steps 1 + 2 + 3 are done and verified** (step 1 `7d710b3`; step 2 `3a91f94`; step 3 `ec0bd09`) — see the Stage 7 section above. **Resume at Stage 7 step 4 — verify the 2-min cap + correct the airplane-mode record:** temporarily lower `MAX_ALARM_DURATION_MILLIS` (`LockInService.kt:36`) to ~20s, trigger a group break, confirm the alarm auto-silences at ~20s with `capped=true muteGranted=false` in logs, then **restore the constant**; and verify/rewrite the airplane-mode limitation (local detection + alarm are connectivity-independent; only the *group reporting* layer needs Firestore; check whether a BREAK `liveStatus` write queues offline and flushes on reconnect). Full turnkey approach in `STAGE7_PLAN.md` Step 4. Then Stage 8 (Polish & Portfolio Packaging). *Two-party REST harness for group flows:* `Chat Test` group `r1hs2AriiJhQYBTLVsvF`, `feedtester` over REST — note a one-emulator lobby needs a REST-hosted live member to persist (see step 3 log).
 2. Loose ends folded into Stage 7: `currentForegroundApp()`'s lookback ✅ addressed in step 1 (widened to session start for >1h sessions). Still pending: the 2-min alarm cap is only logic-reviewed (step 4 will runtime-verify it with a temp-lowered cap).
 3. Stage 5 steps 1–5 committed as `0195042`; step 6's "ALARM SOUNDING" work committed as `0f5e25a`; the visual redesign + back-nav fix committed as `3fcd7b5`; the notification nudge (`MainActivity.kt`, `OnboardingStore.kt` + docs) committed as `1de6fa3`; the group-lobby rework (`ChatStore.kt`, `LobbyStore.kt`, `GroupDetailScreen.kt` + docs) committed as `9b8279f`.
 4. **GitHub remote added (2026-07-15):** `origin` → `QuinnQuak/lock-in-app` (public), all history pushed once. Quinn then asked to pause pushing and stay local for now — commit as usual, don't `git push` again without an explicit ask. See `ARCHITECTURE.md`'s Source Control section.

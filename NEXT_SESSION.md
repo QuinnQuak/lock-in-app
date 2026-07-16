@@ -16,20 +16,27 @@ also added (`origin` → `QuinnQuak/lock-in-app`, public) and pushed once — bu
 without an explicit ask**; Quinn asked to pause pushing and stay local for now. Keep committing
 locally as usual.
 
-## What's next — RESUME POINT (Stage 7 step 3 — block Stop while a group alarm sounds)
-**Stage 7 steps 1 + 2 are DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`,
-step 2 (void force-closed sessions) `3a91f94`. Step 1: a screen-on unknown foreground is a BREAK, a
-deliberate Usage-Access revocation alarms on the first tick, lookback widened to session start. Step 2:
-the service writes a 1s **heartbeat** to session prefs; `MainActivity.onResume` reconciles a phantom
-(force-closed) session via `isStale()` (active + heartbeat >10s old) — voids it with **no credit** and
-shows a one-time red Home "interrupted" banner; a `START_STICKY` `voided` path in `LockInService`
-handles an OS auto-restart. Verified: force-stop→relaunch voids + banner + REST-unchanged counts, while
-a Home-button background stays active (heartbeat keeps beating). Full build+verify log in `PROGRESS.md`.
-**Resume at Stage 7 step 3** — see the `STAGE7_PLAN.md` Step 3 spec: in `SessionControls`
-(`MainActivity.kt`), while in a group session (`session.groupId != null`) **and**
-`LockInMonitor.alarmSounding`, disable Stop and explain (clears on group approval or the 2-min cap).
-Needs the two-party REST harness. Step 4 (verify 2-min cap + correct the airplane-mode record) follows.
-*Test setup note:* mutebreaker's allowlist has Chrome, Clock, and Settings (step-1 fixtures).
+## What's next — RESUME POINT (Stage 7 step 4 — verify 2-min cap + correct the airplane-mode record)
+**Stage 7 steps 1 + 2 + 3 are DONE and emulator-verified** — step 1 (fail-closed detection) `7d710b3`,
+step 2 (void force-closed sessions) `3a91f94`, step 3 (block Stop while a group alarm sounds) `ec0bd09`.
+Step 1: a screen-on unknown foreground is a BREAK, a deliberate Usage-Access revocation alarms on the
+first tick, lookback widened to session start. Step 2: the service writes a 1s **heartbeat** to session
+prefs; `MainActivity.onResume` reconciles a phantom (force-closed) session via `isStale()` (active +
+heartbeat >10s old) — voids it with **no credit** and shows a one-time red Home "interrupted" banner.
+Step 3: in a **group** session with `LockInMonitor.alarmSounding`, the Home "Stop Lock-In" is disabled
+with a red caption (clears on group approval or the 2-min cap); `PressableButton` gained an `enabled`
+param. Verified two-party (feedtester REST-hosted the lobby so it persisted; mutebreaker joined in-app):
+Stop disabled while the sticky alarm sounds, tapping it is a no-op, and Stop re-enables via **both** the
+2-min cap **and** a REST mute-approval (~40s, so it was the approval). Full build+verify log in `PROGRESS.md`.
+**Resume at Stage 7 step 4** — see the `STAGE7_PLAN.md` Step 4 spec: temp-lower
+`MAX_ALARM_DURATION_MILLIS` (`LockInService.kt:36`) to ~20s, trigger a group break, confirm auto-silence
+at ~20s with `capped=true muteGranted=false` in logs, then **restore the constant**; and verify/rewrite
+the airplane-mode record (local detection + solo alarm are connectivity-independent; only group reporting
+needs Firestore — check whether a queued BREAK `liveStatus` write flushes on reconnect). Then Stage 8.
+*Test setup notes:* mutebreaker's allowlist has Chrome, Clock, and Settings (step-1 fixtures); a
+one-emulator lobby needs a REST-hosted live member to survive dead-lobby cleanup (step-3 finding); if the
+app can't reach Firestore realtime while REST works, the emulator's qemu DNS proxy has wedged — kill +
+relaunch the **emulator process** (a guest `adb reboot` won't fix it).
 
 
 **Stage 6 — Cute Redesign & Mascot Economy is COMPLETE (all 6 steps).** Same-day design redecision
@@ -51,7 +58,7 @@ in `CONTEXT.md`'s Design Direction; full build log in `PROGRESS.md`.
   across a cold relaunch; a Flower buy dropped ✨100→85, REST-confirmed `owned:[FLOWER]`,
   `equipped:FLOWER`. Commit hash: see `PROGRESS.md` "What's Next".
 
-**Stage 7 — Anti-Cheat Hardening is IN PROGRESS (steps 1 + 2 of 4 done).** The adversarial pass on
+**Stage 7 — Anti-Cheat Hardening is IN PROGRESS (steps 1 + 2 + 3 of 4 done).** The adversarial pass on
 Stage 1's detection core, fully scoped in `STAGE7_PLAN.md` (decisions made with Quinn 2026-07-15/16, do
 NOT re-litigate). Its spine: detection *was* **fail-open** (`evaluateCompliance` treated an unknown
 foreground as COMPLIANT — revoke Usage Access mid-session → permanent compliance), now flipped
@@ -71,9 +78,15 @@ foreground as COMPLIANT — revoke Usage Access mid-session → permanent compli
   Verified: force-stop→relaunch voids the phantom + shows the banner + **REST-confirmed unchanged
   sparkles/session/activity counts**, while a Home-button background keeps the heartbeat fresh so the
   session stays active (not voided). Full log in `PROGRESS.md`; rationale in `ARCHITECTURE.md`.
-- **Steps 3–4 remaining** (execute in order, verify each on the emulator first): **3** block Stop while
-  a group alarm sounds (`SessionControls`, bounded by the 2-min cap); **4** verify the 2-min cap
-  (temp-lower it) + correct the airplane-mode record. Turnkey specs + live-verify steps in `STAGE7_PLAN.md`.
+- **Step 3 — block Stop while a group alarm sounds ✅ DONE (committed `ec0bd09`, emulator-verified).** In
+  `SessionControls` (`MainActivity.kt`), a group session (`session.groupId != null`) with
+  `LockInMonitor.alarmSounding` disables the Home "Stop Lock-In" button and shows a red caption; solo is
+  untouched; bounded by the 2-min cap. `PressableButton` gained an `enabled` param. Verified two-party
+  (feedtester REST-hosted the persisting lobby, mutebreaker joined in-app): Stop disabled while the sticky
+  alarm sounds, disabled tap is a no-op, and Stop re-enables via **both** the 2-min cap and a REST
+  mute-approval. Full log in `PROGRESS.md`.
+- **Step 4 remaining** (verify each on the emulator first): verify the 2-min cap (temp-lower it) + correct
+  the airplane-mode record. Turnkey specs + live-verify steps in `STAGE7_PLAN.md`.
 
 **Stage 8 — Polish & Portfolio Packaging** (was Stage 7): onboarding flow docs, README, demo video/screenshots.
 
