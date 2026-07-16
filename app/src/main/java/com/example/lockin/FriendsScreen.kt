@@ -223,15 +223,18 @@ fun FriendsScreen() {
     }
 }
 
-/** effectiveState-driven dot colour + short label for a friend's focus status. */
+/**
+ * effectiveState-driven dot colour + short label for a user's focus status.
+ * Shared by the friends list and the group Members roster so the two can't drift.
+ */
 @Composable
-private fun presenceDotColor(presence: UserPresence?): Color = when (presence?.effectiveState()) {
+internal fun presenceDotColor(presence: UserPresence?): Color = when (presence?.effectiveState()) {
     PresenceState.LOCKED_IN -> MaterialTheme.colorScheme.secondary
     PresenceState.BREAK -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
 }
 
-private fun presenceLabel(presence: UserPresence?): String = when (presence?.effectiveState()) {
+internal fun presenceLabel(presence: UserPresence?): String = when (presence?.effectiveState()) {
     PresenceState.LOCKED_IN -> "Locked in"
     PresenceState.BREAK -> "On break"
     else -> "Idle"

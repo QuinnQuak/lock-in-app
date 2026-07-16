@@ -95,6 +95,11 @@ fun GroupDetailScreen(group: LockInGroup) {
     // My friends, for the add-member picker (only those not already in the group).
     var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
 
+    // App-wide focus presence per member (uid -> state, absent == idle/offline).
+    // Drives the Members-roster dot -- app-wide, so a member locked in solo still
+    // reads "Locked in" here, same source the friends list uses.
+    var presence by remember { mutableStateOf<Map<String, UserPresence>>(emptyMap()) }
+
     // Members-tab management UI state: the member whose action sheet is open, and
     // whether the add-member picker is showing.
     var actionTarget by remember { mutableStateOf<GroupMemberProfile?>(null) }
@@ -114,6 +119,14 @@ fun GroupDetailScreen(group: LockInGroup) {
         )
         if (myUid != null) regs += listenFriends(myUid) { friends = it }
         onDispose { regs.forEach { it.remove() } }
+    }
+
+    // Presence is keyed on the roster, not group.id: MainActivity live-syncs the
+    // open group, so members can be added/removed without a re-navigation -- the
+    // whereIn presence query must re-subscribe when the uid set changes.
+    DisposableEffect(group.memberUids) {
+        val reg = listenPresence(group.memberUids) { presence = it }
+        onDispose { reg.remove() }
     }
 
     // My management rights (mirrors firestore.rules): the owner controls
@@ -417,7 +430,7 @@ fun GroupDetailScreen(group: LockInGroup) {
                             isOwner = targetIsOwner,
                             isAdmin = targetIsAdmin,
                             isMe = profile.uid == myUid,
-                            liveState = memberStatuses.firstOrNull { it.uid == profile.uid }?.state,
+                            presence = presence[profile.uid],
                             onClick = if (actionable) ({ actionTarget = profile }) else null
                         )
                     }
@@ -480,16 +493,13 @@ private fun MemberRow(
     isOwner: Boolean,
     isAdmin: Boolean,
     isMe: Boolean,
-    liveState: ComplianceState?,
+    presence: UserPresence?,
     onClick: (() -> Unit)?,
 ) {
-    // A live status dot: green when locked in, amber on break, muted grey when
-    // idle/offline. Presence-driven staleness lands with the presence step.
-    val dotColor = when (liveState) {
-        ComplianceState.BREAK -> MaterialTheme.colorScheme.error
-        null -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-        else -> MaterialTheme.colorScheme.secondary
-    }
+    // App-wide focus dot: green locked in, red on break, muted grey idle/offline
+    // (effectiveState() folds a stale stamp back to idle). Same source + colours
+    // as the friends list.
+    val dotColor = presenceDotColor(presence)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -509,19 +519,12 @@ private fun MemberRow(
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(modifier = Modifier.weight(1f))
-        val status = when (liveState) {
-            ComplianceState.BREAK -> "On break"
-            null -> ""
-            else -> "Locked in"
-        }
-        if (status.isNotEmpty()) {
-            Text(
-                text = status,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-        }
+        Text(
+            text = presenceLabel(presence),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.width(10.dp))
         if (isOwner) {
             RoleBadge("Owner")
         } else if (isAdmin) {
