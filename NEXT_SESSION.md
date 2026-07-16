@@ -12,7 +12,7 @@ Discord-style servers + live lobbies, social feed + gamification, and the Bubble
 mascot economy are all shipped. **Stage 7 (Anti-Cheat Hardening) COMPLETE.** **Stage 8 (Social
 Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified (2026-07-16).** Next is Stage 9.
 
-## What's next — RESUME POINT (Stage 9 — Polish & Portfolio Packaging IN PROGRESS; polish + stability, recruiter audience, no plan doc)
+## What's next — RESUME POINT (Stage 9 — Polish & Portfolio Packaging; punch list + dark mode DONE, only optional screenshots tail left)
 
 **Stage 9 scope locked with Quinn 2026-07-16:** visual/UX **polish + stability**, audience **recruiters/job
 apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sweep, agent reports back; **no
@@ -27,17 +27,12 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
 4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
 6. ~~Chat messages have no timestamps~~ **✅ FIXED + verified** — each bubble now shows a locale-aware short
    clock time (12/24h per device), aligned to the sender's side.
-7. **Feed didn't surface a friend post** — likely fixture staleness; quick-verify friend posts render. *(not done)*
+7. ~~Feed didn't surface a friend post~~ **✅ VERIFIED — not a bug** — Feed Tester's 25m post renders (with kudos
+   heart); it just sorts below mutebreaker's more-recent self-posts (feed is newest-first). No code change.
 
-**✅ Landed this session:**
-- **#2 roster self-name** (committed `04fab0c`): `GroupStore` `UNRESOLVED_MEMBER_NAME` const; `MemberRow(myDisplayName=…)`
-  resolves the self row as auth name → userSearch name → "You" (never "Member"). Fixture: `mutebreaker` had **no
-  `userSearch` doc** — created `userSearch/J88TDlaV6…` + mirrored `displayName:"Quinn"` into `users/`. Reads "Quinn (you)".
-- **#4/#5 Home** (committed `04fab0c`): `HomeScreen` shows CURRENTLY OPEN **only while `sessionActive`** — idle is a
-  clean centered mascot+Start hero; chip returns during a lock-in. Verified hidden-idle / shown-active / gone-on-stop.
-- **#1 end-of-session summary** (uncommitted): `SessionSummaryDialog` in `MainActivity.kt` on clean Stop — mascot +
-  "Nice work!" + time focused / Sparkles / streak + counts-vs-too-short message. Numbers mirror `LockInService`
-  teardown (floor(sec/60) sparkles; `fetchStreakInfo` streak folding in this session). Verified `0:27 · +0 ✨ · 🔥 3`.
+**✅ Commit trail (Stage 9):** `04fab0c` (#2 roster self-name + #4/#5 Home idle layout) · `f6cadb0` (#1 session
+summary dialog) · `12342c6` (#3 achievements skeleton) · `17e8e46` (dark mode) · `7bde752` (#6 chat timestamps) ·
+#7 was verify-only (no code). Full narrative for each in `PROGRESS.md`'s Stage 9 section.
 
 **✅ Dark mode (full in-app toggle + sweep) — DONE & emulator-verified.** Scope picked by Quinn: full. The dark
 palettes already existed (OS-driven only); added `ThemeMode {LIGHT,DARK,SYSTEM}`, a Light/Dark/System selector under
@@ -45,8 +40,8 @@ a new **Appearance** header in Profile, `WindowCompat` status/nav-bar handling, 
 every screen + the session-summary dialog in forced Dark (Bubblegum) — all legible. `Theme.kt`, `ThemeStore.kt`,
 `ProfileScreen.kt`, `MainActivity.kt`.
 
-**⏭️ Resume:** last punch-list item — **#7** feed friend-post verify (likely fixture staleness, not a bug) — or the
-optional README-screenshots tail. (#1–#6 all done + committed; dark mode done.)
+**⏭️ Resume:** **Stage 9 punch list is fully cleared** (#1–#7 done; dark mode done). What's left is the **optional
+README-screenshots / portfolio-packaging tail** — decide with Quinn whether to do it or call Stage 9 complete.
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

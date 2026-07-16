@@ -256,6 +256,13 @@ carried `createdAtMillis` (server timestamp, with a local-echo fallback to now) 
 in `labelSmall`/`onSurfaceVariant`, aligned to the sender's side. Verified live: "hello" → `8:01 AM` (right),
 "live ping from feedtester" → `12:05 PM` (left).
 
+**Verify: feed friend post (#7) ✅ (emulator-verified — NOT a bug).** Suspected the feed wasn't surfacing friend
+activity; it is. `feedtester`'s single activity doc (25m SOLO, 1 break, `startedAt` 2026-07-15T02:04Z) renders
+correctly as a **"Feed Tester · Locked in 25m · 1 break · Yesterday"** card with a kudos heart — it just sorts
+*below* mutebreaker's many more-recent self-posts (feed is newest-first, fanned out over self + friends in
+`fetchFeed`). The earlier "didn't surface" read was top-of-feed only. No code change; `fetchFeed` + `FeedScreen`
+verified over REST (`users/zfuW…/activity`) and on the emulator. **Stage 9 punch list is fully cleared.**
+
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:
 - Airplane mode only **delays** group reporting — it doesn't defeat detection (✅ verified, Stage 7 step 4). **Local detection + the solo alarm are connectivity-independent** (`UsageStatsManager` is a local query — the alarm was confirmed sounding while offline). The *group reporting* layer (liveStatus/mute/alerts) needs Firestore, but a BREAK `liveStatus` write **queues offline and flushes on reconnect** (Firestore offline persistence, on by default) — so as long as the process survives, the break reaches the group once connectivity returns; if the process is also killed, Step 2 voids it locally. The group's ability to *see* a member go dark *during* an outage is the deferred Stage-8 going-dark work (decision 3).
