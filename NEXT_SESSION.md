@@ -16,7 +16,17 @@ also added (`origin` → `QuinnQuak/lock-in-app`, public) and pushed once — bu
 without an explicit ask**; Quinn asked to pause pushing and stay local for now. Keep committing
 locally as usual.
 
-## What's next — RESUME POINT (Stage 7 — Anti-Cheat Hardening)
+## What's next — RESUME POINT (Stage 7 step 2 — void force-closed sessions)
+**Stage 7 step 1 (fail-closed detection) is DONE and emulator-verified** — committed `7d710b3` (docs
+in the follow-up commit). Detection is now fail-closed: a screen-on unknown foreground is a BREAK, a
+deliberate Usage-Access revocation alarms on the first tick, and the lookback widened to session start.
+Full build+verify log in `PROGRESS.md`'s Stage 7 section. **Resume at Stage 7 step 2** — see the
+`STAGE7_PLAN.md` Step 2 spec (heartbeat + reconcile-on-launch to void a force-closed session, giving it
+no credit). Steps 3 (block Stop while a group alarm sounds) and 4 (verify 2-min cap + correct the
+airplane-mode record) follow. *Test setup note:* mutebreaker's allowlist now has Chrome, Clock, and
+Settings (added as step-1 fixtures).
+
+
 **Stage 6 — Cute Redesign & Mascot Economy is COMPLETE (all 6 steps).** Same-day design redecision
 superseding the amber/green palette that had *just* shipped in Stage 5 step 6: a "Bubblegum"
 pink/orange palette + light/dark + a curated theme picker (Bubblegum/Peach/Berry/Sunset),
@@ -36,11 +46,22 @@ in `CONTEXT.md`'s Design Direction; full build log in `PROGRESS.md`.
   across a cold relaunch; a Flower buy dropped ✨100→85, REST-confirmed `owned:[FLOWER]`,
   `equipped:FLOWER`. Commit hash: see `PROGRESS.md` "What's Next".
 
-**Stage 7 — Anti-Cheat Hardening is the next stage.** The adversarial pass on Stage 1's detection
-core: the phantom "active" session left by a force-close, airplane mode defeating detection, revoking
-Usage Access mid-session, and the "Stop Lock-In silences a sticky alarm" free escape hatch. Fold in
-the two loose ends below. Scope it with Quinn before building (multi-round clarifying questions for
-anything ambiguous).
+**Stage 7 — Anti-Cheat Hardening is IN PROGRESS (step 1 of 4 done).** The adversarial pass on Stage 1's
+detection core, fully scoped in `STAGE7_PLAN.md` (decisions made with Quinn 2026-07-15/16, do NOT
+re-litigate). Its spine: detection *was* **fail-open** (`evaluateCompliance` treated an unknown
+foreground as COMPLIANT — revoke Usage Access mid-session → permanent compliance), now flipped
+**fail-closed** with a widened lookback + grace debounce so the flip is safe.
+- **Step 1 — fail-closed detection ✅ DONE (committed `7d710b3`, emulator-verified).** Three edits
+  (drop the null clause in `evaluateCompliance`; widen `currentForegroundApp`'s lookback to the session
+  start; cause-distinguishing grace gate in the `LockInService` loop — revocation alarms on tick 1,
+  transient unknowns wait `UNKNOWN_GRACE_TICKS=4`). Verified: no regression on allowlisted/own apps,
+  screen-off still compliant, **revoking Usage Access mid-session fires the alarm on the first tick and
+  stays broken even when the app is reopened**, rapid app-switching raises no false alarm. Full log in
+  `PROGRESS.md`; rationale in `ARCHITECTURE.md`.
+- **Steps 2–4 remaining** (execute in order, verify each on the emulator first): **2** void
+  force-closed sessions (heartbeat + reconcile-on-launch, no credit); **3** block Stop while a group
+  alarm sounds (`SessionControls`, bounded by the 2-min cap); **4** verify the 2-min cap (temp-lower it)
+  + correct the airplane-mode record. Turnkey specs + live-verify steps for each in `STAGE7_PLAN.md`.
 
 **Stage 8 — Polish & Portfolio Packaging** (was Stage 7): onboarding flow docs, README, demo video/screenshots.
 
@@ -61,10 +82,11 @@ Friend-wide auto-posting feed; streak = a day with a lock-in ≥ a per-user, fri
 - Emulator is signed in as `mutebreaker@lockin.test` / `MuteTest2026`, with 3 backdated 30-min sessions faking a 🔥3 streak.
 - `feedtester@lockin.test` / `FeedTest2026` is a mutual friend of mutebreaker with a posted 25-min activity — the friend-feed / kudos fixture.
 - **`Chat Test` group** (id `r1hs2AriiJhQYBTLVsvF`, members mutebreaker + feedtester, `muteApprovalCount 1`) — the fixture for chat / lobby / mute-approval tests; second party driven over REST. Reusable Python REST helpers live in the job's tmp dir (`fb.py` reads the API key without printing it).
+- mutebreaker's **allowlist** now contains Chrome (`com.android.chrome`), Clock (`com.google.android.deskclock`), and Settings (`com.android.settings`) — added as Stage 7 step-1 fixtures.
 
 ## Loose ends worth folding into Stage 7 (not blockers)
-- 2-min group alarm cap: logic-reviewed only, never runtime-verified with a real wait.
-- `currentForegroundApp()`'s 1-hour lookback window is a stopgap; correct fix is querying from session start.
+- 2-min group alarm cap: logic-reviewed only, never runtime-verified with a real wait. → Stage 7 **step 4**.
+- ~~`currentForegroundApp()`'s 1-hour lookback window is a stopgap~~ → ✅ addressed in Stage 7 step 1 (`7d710b3`): widened to `min(sessionStartMillis, now − 1h)`.
 
 ## Working agreements (see `CONTEXT.md` / `CLAUDE.md` for full text)
 - Address the user as **Quinn** in every response.
