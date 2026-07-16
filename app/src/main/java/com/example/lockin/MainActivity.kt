@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -114,6 +115,9 @@ class MainActivity : ComponentActivity() {
     // Re-checked on resume so returning from the notification settings screen
     // (via the Home nudge) makes the nudge vanish once alerts are on.
     private var notificationsGranted by mutableStateOf(false)
+    // Set when onResume reconciles a phantom (force-closed) session: drives the
+    // one-time Home "interrupted, didn't count" banner. Dismissed by the user.
+    private var sessionInterrupted by mutableStateOf(false)
     // Device-local (ThemeStore, not Firestore) -- loaded once in onCreate below.
     private var appTheme by mutableStateOf(AppTheme.BUBBLEGUM)
 
@@ -269,6 +273,10 @@ class MainActivity : ComponentActivity() {
                                             startActivity(appNotificationSettingsIntent(this@MainActivity))
                                         },
                                         onDismissNudge = { notificationNudgeDismissed = true },
+                                        // One-time notice that a force-closed
+                                        // session was voided (Stage 7 step 2).
+                                        showInterruptedBanner = sessionInterrupted,
+                                        onDismissInterrupted = { sessionInterrupted = false },
                                         // Deep-link from the Home "group lock-in"
                                         // hint into that group's room.
                                         onOpenGroup = { gid ->
@@ -332,6 +340,16 @@ class MainActivity : ComponentActivity() {
         usageAccessGranted = hasUsageAccessPermission(this)
         onboardingComplete = isOnboardingComplete(this)
         notificationsGranted = hasNotificationPermission(this)
+
+        // Reconcile a force-closed session: if prefs still say "active" but the
+        // service's heartbeat has gone stale, the service died without running
+        // onDestroy -- so nothing was recorded (history/activity/Sparkles all
+        // write there). Void the phantom (clear prefs; stopService no-ops on an
+        // already-dead service, so no recording path runs) and flag the banner.
+        if (loadSession(this).isStale()) {
+            stopLockInSession(this)
+            sessionInterrupted = true
+        }
     }
 
     override fun onDestroy() {
@@ -398,6 +416,8 @@ private fun HomeScreen(
     showNotificationNudge: Boolean,
     onOpenNotificationSettings: () -> Unit,
     onDismissNudge: () -> Unit,
+    showInterruptedBanner: Boolean,
+    onDismissInterrupted: () -> Unit,
     onOpenGroup: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -411,6 +431,10 @@ private fun HomeScreen(
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (showInterruptedBanner) {
+            InterruptedBanner(onDismiss = onDismissInterrupted)
+            Spacer(modifier = Modifier.height(24.dp))
+        }
         if (showNotificationNudge) {
             NotificationNudge(onEnable = onOpenNotificationSettings, onDismiss = onDismissNudge)
             Spacer(modifier = Modifier.height(24.dp))
@@ -505,6 +529,52 @@ private fun NotificationNudge(onEnable: () -> Unit, onDismiss: () -> Unit) {
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "Dismiss",
                 tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+// One-time notice shown after a force-closed session is reconciled away
+// (Stage 7 step 2). Anti-cheat honesty: killing the app to escape monitoring
+// banks nothing -- the session is voided, not silently completed. Uses the
+// error/alert tint so it reads as "this didn't count," not a neutral tip.
+@Composable
+private fun InterruptedBanner(onDismiss: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(26.dp))
+            .padding(start = 16.dp, top = 12.dp, end = 6.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Warning,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.size(24.dp)
+        )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Last lock-in was interrupted",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "It was closed before finishing, so it didn't count — no streak, Sparkles, or feed post.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+            )
+        }
+        IconButton(onClick = onDismiss) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "Dismiss",
+                tint = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
                 modifier = Modifier.size(18.dp)
             )
         }

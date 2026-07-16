@@ -60,6 +60,10 @@ class LockInService : Service() {
     private var displayName: String = "Someone"
     private var breakCount = 0
     private var wasInBreak = false
+    // Set in onCreate when a START_STICKY auto-restart finds an already-stale
+    // heartbeat (a monitoring gap happened). We void rather than silently resume
+    // a session that went dark, and onDestroy skips all recording for it.
+    private var voided = false
     private var unknownTicks = 0   // consecutive screen-on + unknown-foreground ticks (grace debounce)
     private var alarmStartMillis = 0L
     private var alarmCapped = false
@@ -87,6 +91,14 @@ class LockInService : Service() {
         lobbyId = session.lobbyId
         endsAtMillis = session.endsAtMillis
         ownerUid = Firebase.auth.currentUser?.uid
+        // Belt-and-suspenders for START_STICKY: if Android auto-restarted us
+        // after a kill and the loaded heartbeat is already stale, the session
+        // had a dark monitoring window. Void it (onStartCommand tears down; no
+        // receiver/monitoring is set up below, and onDestroy skips recording).
+        if (session.isStale()) {
+            voided = true
+            return
+        }
         // Captured now, not in onDestroy: sign-out clears auth right after the
         // session stops, so the display name would be gone by teardown. Guard on
         // isNotBlank since an empty (not null) name slips past a plain `?:`.
@@ -113,12 +125,28 @@ class LockInService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Required even on the void path: a foregroundService start must call
+        // startForeground promptly or the system crashes us.
         startForeground(NOTIFICATION_ID, buildNotification())
+        if (voided) {
+            // Clear the phantom prefs (inactive) and stop -- no credit, and
+            // don't come back (the session is over, not to be resumed).
+            stopLockInSession(this)
+            return START_NOT_STICKY
+        }
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        // Voided (stale START_STICKY restart): nothing was registered or
+        // launched in onCreate, and the session earns no credit. Just clear the
+        // shared monitor state and bail before the receiver-unregister (which
+        // would throw) and the recording block below.
+        if (voided) {
+            LockInMonitor.reset()
+            return
+        }
         screenStateReceiver.unregister(this)
         serviceScope.cancel()
         muteApprovalListener?.remove()
@@ -246,6 +274,11 @@ class LockInService : Service() {
                 // "ALARM SOUNDING" even when the breaker is technically
                 // compliant again (group sticky alarm).
                 LockInMonitor.setAlarmSounding(alarmActive)
+
+                // Ground-truth liveness stamp: a force-stop skips onDestroy, so
+                // this heartbeat stops advancing and the app voids the phantom
+                // session on next entry (Stage 7 step 2).
+                writeHeartbeat(this@LockInService)
 
                 delay(1000)
             }
