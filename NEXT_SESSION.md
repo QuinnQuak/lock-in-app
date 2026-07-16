@@ -19,24 +19,27 @@ apps** (portfolio screenshots deferred as an optional tail). Quinn drives the sw
 `STAGE9_PLAN.md`** — track in `PROGRESS.md` (Stage 9 section) + here.
 
 **✅ Stability sweep done (emulator) — no crashes anywhere.** Punch list, ranked by demo impact:
-1. **No end-of-session payoff** — stopping a lock-in drops silently to Home (mascot briefly sparkles). No "you
-   focused X min · +Y sparkles · streak kept" summary. *(biggest missed moment; not yet done)*
+1. ~~No end-of-session payoff~~ **✅ FIXED + verified** — clean Stop pops a "Nice work!" summary
+   (time focused · Sparkles · streak + counts/too-short message; mirrors what the service records).
 2. ~~Roster showed "Member (you)"~~ **✅ FIXED + verified** — now "Quinn (you)".
 3. **Achievements loading** is a near-invisible tiny dot before the grid loads (Profile). *(not yet done)*
 4. ~~Home dead space above mascot~~ + 5. ~~idle CURRENTLY OPEN meaningless~~ **✅ FIXED + verified** (one change).
 6. **Chat messages have no timestamps** (minor). *(not yet done)*
 7. **Feed didn't surface a friend post** — likely fixture staleness; quick-verify friend posts render. *(not done)*
 
-**✅ Landed this session (uncommitted — commit next):**
-- **#2 roster self-name:** `GroupStore` `UNRESOLVED_MEMBER_NAME` const; `MemberRow(myDisplayName=…)` resolves the
-  self row as auth name → userSearch name → "You" (never "Member"). Fixture: `mutebreaker` had **no `userSearch`
-  doc** — created `userSearch/J88TDlaV6…` + mirrored `displayName:"Quinn"` into `users/`. Roster reads "Quinn (you)".
-- **#4/#5 Home:** `HomeScreen` shows CURRENTLY OPEN **only while `sessionActive`** — idle is a clean centered
-  mascot+Start hero; chip returns during a lock-in. Verified hidden-idle / shown-active / gone-on-stop.
+**✅ Landed this session:**
+- **#2 roster self-name** (committed `04fab0c`): `GroupStore` `UNRESOLVED_MEMBER_NAME` const; `MemberRow(myDisplayName=…)`
+  resolves the self row as auth name → userSearch name → "You" (never "Member"). Fixture: `mutebreaker` had **no
+  `userSearch` doc** — created `userSearch/J88TDlaV6…` + mirrored `displayName:"Quinn"` into `users/`. Reads "Quinn (you)".
+- **#4/#5 Home** (committed `04fab0c`): `HomeScreen` shows CURRENTLY OPEN **only while `sessionActive`** — idle is a
+  clean centered mascot+Start hero; chip returns during a lock-in. Verified hidden-idle / shown-active / gone-on-stop.
+- **#1 end-of-session summary** (uncommitted): `SessionSummaryDialog` in `MainActivity.kt` on clean Stop — mascot +
+  "Nice work!" + time focused / Sparkles / streak + counts-vs-too-short message. Numbers mirror `LockInService`
+  teardown (floor(sec/60) sparkles; `fetchStreakInfo` streak folding in this session). Verified `0:27 · +0 ✨ · 🔥 3`.
 
-**⏭️ Resume:** offer Quinn the remaining punch-list items (**#1 end-of-session summary** is the highest-value
-next; then #3 achievements loading, #6 chat timestamps, #7 feed verify), or the optional README-screenshots tail.
-Files changed but **not yet committed:** `MainActivity.kt`, `GroupDetailScreen.kt`, `GroupStore.kt` (+ docs).
+**⏭️ Resume:** remaining punch-list items — **#3** achievements loading (tiny dot → skeleton/spinner), **#6** chat
+timestamps, **#7** feed friend-post verify — or the optional README-screenshots tail. Files changed but **not yet
+committed:** `MainActivity.kt` (#1 summary dialog) + docs.
 
 <details><summary>Stage 8 (COMPLETE) — historical detail</summary>
 

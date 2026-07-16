@@ -2,7 +2,7 @@
 
 > Living status doc only. For product intent/rationale see `CONTEXT.md`; for tech stack, data model, and codebase structure see `ARCHITECTURE.md`. **Completed stages 0–6 live in `docs/archive/STAGES_0-6.md`** — this file keeps only the active stage in full. Update this file after each meaningful milestone; append rather than rewrite.
 
-## Status: Stages 0–8 complete (see archive / below). **Stage 8 (Social Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified 2026-07-16** (rules shipped; presence, admin edit, and Members-dot-to-presence all verified live). **Stage 9 (Polish & Portfolio Packaging) in progress** — polish + stability, recruiter audience, no plan doc (tracked in the Stage 9 section below). Stability sweep done (no crashes); roster self-name (#2) and Home idle-layout / CURRENTLY-OPEN (#4/#5) fixes landed + emulator-verified.
+## Status: Stages 0–8 complete (see archive / below). **Stage 8 (Social Refinement — Groups & Friends) COMPLETE + deployed & emulator-verified 2026-07-16** (rules shipped; presence, admin edit, and Members-dot-to-presence all verified live). **Stage 9 (Polish & Portfolio Packaging) in progress** — polish + stability, recruiter audience, no plan doc (tracked in the Stage 9 section below). Stability sweep done (no crashes); end-of-session summary (#1), roster self-name (#2), and Home idle-layout / CURRENTLY-OPEN (#4/#5) fixes landed + emulator-verified.
 
 Everything was checked live on the `Medium_Phone` emulator (screenshots, `dumpsys`, logcat, or direct REST calls against deployed rules), not just compiled.
 
@@ -212,6 +212,16 @@ renders the "CURRENTLY OPEN" foreground-app chip **only while a lock-in is activ
 alongside `foregroundApp`). Idle Home is now a clean, centered mascot + Start hero (the chip was pulling the
 centered block up, causing the asymmetric dead space); during a lock-in the chip returns where it's meaningful
 (confirms the allowlisted app in focus). Verified: hidden idle, restored on start, gone again on stop.
+
+**Fix: end-of-session summary (#1) ✅ (emulator-verified).** A clean "Stop Lock-In" now pops a celebratory
+`SessionSummaryDialog` (happy mascot + "Nice work!") in `MainActivity.kt` — replacing the silent drop-to-Home.
+Shows **time focused**, **Sparkles earned** (`floor(sec/60)`), and a **streak line** with a "counts toward your
+streak" vs "lock in {threshold} min to count" sub-message. Numbers mirror what `LockInService` records on
+teardown: sparkles via the same floor rule; streak via `fetchStreakInfo(uid, start, sec)` (folds in this very
+session if it clears the user's threshold, same call the feed post uses). Streak fields load async — the dialog
+shows the known numbers instantly and fills the streak in when the read returns (guarded so a dismiss-before-read
+can't re-show it). Only on a **clean** finish — an alert-state stop (break/alarm) shows no summary. Verified live:
+a 27s solo stop showed `0:27 · +0 ✨ · 🔥 3 day streak · "Lock in 30 min to count…"`, Done dismissed to idle Home.
 
 ## Known, Currently-Live Limitations
 Same spirit as `CONTEXT.md`'s documented loopholes — real gaps, not oversights, as of this commit:

@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DynamicFeed
 import androidx.compose.material.icons.rounded.Groups
@@ -78,6 +80,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.graphics.drawable.toBitmap
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -620,6 +623,10 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
             justCompleted = false
         }
     }
+    // A clean stop pops a celebratory summary (time focused, Sparkles earned,
+    // streak status) so finishing a lock-in has a payoff. Null when nothing to
+    // show. The numbers mirror what LockInService records on teardown.
+    var summary by remember { mutableStateOf<SessionSummary?>(null) }
 
     LaunchedEffect(session.isActive, session.startTimeMillis) {
         while (session.isActive) {
@@ -673,10 +680,32 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
             PressableButton(
                 onClick = {
                     // A stop taken while alert (break/alarm) isn't a clean
-                    // finish, so it doesn't earn the happy mascot beat.
-                    justCompleted = !isAlert
+                    // finish, so it doesn't earn the happy mascot beat or a summary.
+                    val cleanFinish = !isAlert
+                    justCompleted = cleanFinish
+                    // Snapshot the finished session before we clear it.
+                    val finishedSeconds = elapsedSeconds
+                    val finishedStart = session.startTimeMillis
+                    val uid = Firebase.auth.currentUser?.uid
                     stopLockInSession(context)
                     session = loadSession(context)
+                    if (cleanFinish && uid != null) {
+                        // Show at once with the known numbers; the streak needs a
+                        // read, so fold it in when it returns (folding in this very
+                        // session, which may not have hit Firestore yet -- same as
+                        // the service does for the feed post).
+                        summary = SessionSummary(finishedSeconds, finishedSeconds / 60, null, null, false)
+                        fetchStreakInfo(uid, finishedStart, finishedSeconds) { info ->
+                            // Ignore if the user already dismissed the summary.
+                            summary?.let {
+                                summary = it.copy(
+                                    streak = info.streak,
+                                    thresholdMinutes = info.thresholdMinutes,
+                                    countedTowardStreak = finishedSeconds / 60 >= info.thresholdMinutes,
+                                )
+                            }
+                        }
+                    }
                 },
                 enabled = !stopBlocked,
                 containerColor = statusColor,
@@ -725,6 +754,96 @@ private fun SessionControls(onOpenGroup: (String) -> Unit) {
                 text = "Start Lock-In"
             )
         }
+    }
+
+    summary?.let { SessionSummaryDialog(it, onDismiss = { summary = null }) }
+}
+
+// Snapshot of a just-finished lock-in, shown in the celebratory summary. Streak
+// fields are null until the read behind them returns.
+private data class SessionSummary(
+    val durationSeconds: Long,
+    val sparkles: Long,
+    val streak: Int?,
+    val thresholdMinutes: Int?,
+    val countedTowardStreak: Boolean,
+)
+
+@Composable
+private fun SessionSummaryDialog(summary: SessionSummary, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Mascot(mood = MascotMood.HAPPY, size = 76.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Nice work!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+                    SummaryStat(value = formatElapsed(summary.durationSeconds), label = "Focused")
+                    SummaryStat(value = "+${summary.sparkles} ✨", label = "Sparkles")
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                // Streak line appears once the read returns. "Counts" vs "too
+                // short" teaches the streak mechanic right where it's decided.
+                summary.streak?.let { streak ->
+                    Text(
+                        text = "🔥 $streak day streak",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (summary.countedTowardStreak) {
+                            "Counts toward your streak"
+                        } else {
+                            "Lock in ${summary.thresholdMinutes} min to count toward your streak"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+                PressableButton(
+                    onClick = onDismiss,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    icon = Icons.Rounded.Check,
+                    text = "Done"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
