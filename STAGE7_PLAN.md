@@ -293,8 +293,8 @@ done; resume at Step 3.**
 - A rooted device / OS-level tamper defeats any client-side scheme. State it, don't hide it.
 
 ## Test fixtures (unchanged — see `ARCHITECTURE.md`)
-- Emulator signed in as `mutebreaker@lockin.test` / `MuteTest2026` (🔥3 fixture, `sparkles:85`).
-- `feedtester@lockin.test` / `FeedTest2026` — mutual friend, driven over REST for two-party flows.
+- Emulator signed in as `mutebreaker@lockin.test` (🔥3 fixture, `sparkles:85`).
+- `feedtester@lockin.test` — mutual friend, driven over REST for two-party flows.
 - `Chat Test` group `r1hs2AriiJhQYBTLVsvF` (mutebreaker + feedtester, `muteApprovalCount 1`) — the
-  lobby / mute-approval fixture. REST helpers in the job tmp dir (`fb.py`).
+  lobby / mute-approval fixture. REST harness: `tools/fb.py` (passwords in gitignored `tools/creds.json`).
 

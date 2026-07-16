@@ -34,8 +34,9 @@ the emulator first:
 Then **Stage 8 — Polish & Portfolio Packaging** (onboarding docs, README, demo video/screenshots).
 
 ## Test fixtures (full detail in `ARCHITECTURE.md`)
-- Emulator signed in as `mutebreaker@lockin.test` / `MuteTest2026` (3 backdated 30-min sessions fake a 🔥3 streak).
-- `feedtester@lockin.test` / `FeedTest2026` — a mutual friend of mutebreaker with a posted 25-min activity (friend-feed / kudos fixture).
+- Emulator signed in as `mutebreaker@lockin.test` (3 backdated 30-min sessions fake a 🔥3 streak).
+- `feedtester@lockin.test` — a mutual friend of mutebreaker with a posted 25-min activity (friend-feed / kudos fixture).
+- Passwords for both live in `tools/creds.json` (gitignored); `tools/fb.py` reads them automatically.
 - **`Chat Test` group** (id `r1hs2AriiJhQYBTLVsvF`, members mutebreaker + feedtester, `muteApprovalCount 1`) — the two-party chat / lobby / mute-approval fixture; second party driven over REST via **`tools/fb.py`** (see `tools/README.md`).
 - mutebreaker's **allowlist** has Chrome (`com.android.chrome`), Clock (`com.google.android.deskclock`), Settings (`com.android.settings`) — Stage 7 step-1 fixtures.
 - **Harness:** `tools/fb.py` (Firebase REST two-party driver) + `tools/adb-helpers.sh` (scoped emulator checks) live in the repo now — use them instead of re-deriving one-liners. Env/adb gotchas: `docs/archive/GOTCHAS.md` (e.g. a one-emulator lobby needs a REST-hosted live member; a wedged qemu DNS proxy after airplane-mode needs an emulator-process restart).

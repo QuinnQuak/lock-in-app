@@ -39,7 +39,7 @@ Override `ADB`/`PKG`/`OUT_DIR` via env if paths differ.
 ## `creds.json` (gitignored — create locally)
 Test-account passwords for `fb.py`. Emulator-only throwaways. Shape:
 ```json
-{ "mutebreaker@lockin.test": "MuteTest2026", "feedtester@lockin.test": "FeedTest2026" }
+{ "mutebreaker@lockin.test": "<password>", "feedtester@lockin.test": "<password>" }
 ```
 
 ## Standing fixtures (detail in `ARCHITECTURE.md`)
